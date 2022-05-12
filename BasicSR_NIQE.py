@@ -1,5 +1,5 @@
 #_________________________________________________________________________
-#origin from https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe.py
+# origin from https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe.py
 #
 # from BasicSR imported niqe
 # Re-implementation for pil images
