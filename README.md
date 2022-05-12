@@ -7,3 +7,5 @@ from https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe.py
 This requires niqe_pris_params.npz file.
 
 Typically, images smaller than 120x120 generate error with "min() related error". Please use it with cautions.
+
+-> Similar error orrurs in original MATLAB ver function(http://live.ece.utexas.edu/research/quality/niqe_release.zip)
