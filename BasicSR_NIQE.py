@@ -24,6 +24,12 @@
 #      float_score = calc_niqe_with_pil(img_pil)
 #      or
 #      float_score = calc_niqe_with_pil(img_pil, path_npz = '/content/niqe_pris_params.npz')
+#
+#--- Score checked (using function calc_niqe_with_pil)
+#   [MATLAB R2021a]                result for tests/data/baboon.png: 5.72957338       (5.7296)
+#   [BasicSR's Re-implementation]  result for tests/data/baboon.png: 5.7295763        (5.7296)
+#   [Re-Re-implementation]         result for tests/data/baboon.png: 5.72957566614084 (5.7296)
+#
 #_________________________________________________________________________
 
 import cv2
@@ -587,7 +593,7 @@ def calculate_niqe(img, crop_border, input_order='HWC', convert_to='y', **kwargs
     return niqe_result
 
 #======================================================================== (6)
-#쓰기쉽게 간략화
+#Easy use for pil_img
 def calc_niqe_with_pil(img_pil, **kargs):
     #when pil -> np, shape is HeightWidthChannel (HWC)
     img_np = np.array(img_pil)
@@ -600,7 +606,5 @@ def calc_niqe_with_pil(img_pil, **kargs):
         return calculate_niqe(img_cv, 0, path_niqe_pris_params = path_npz)
     except:
         return calculate_niqe(img_cv, 0)
-    
-    #[MATLAB R2021a]                result for tests/data/baboon.png: 5.72957338 (5.7296)
-    #[BasicSR's Re-implementation]  result for tests/data/baboon.png: 5.7295763 (5.7296)
-    #[Re-Re-implementation]         result for tests/data/baboon.png: 5.72957566614084 (5.7296)
+
+print("EoF BasicSR_NIQE.py")
