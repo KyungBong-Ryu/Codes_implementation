@@ -1,3 +1,4 @@
+#BasicSR_NIQE.py
 #_________________________________________________________________________
 # origin from https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe.py
 #
@@ -27,8 +28,11 @@
 #
 #--- Score checked (using function calc_niqe_with_pil)
 #   [MATLAB R2021a]                result for tests/data/baboon.png: 5.72957338       (5.7296)
+#       score from original code comment
 #   [BasicSR's Re-implementation]  result for tests/data/baboon.png: 5.7295763        (5.7296)
-#   [Re-Re-implementation]         result for tests/data/baboon.png: 5.72957566614084 (5.7296)
+#       score from original code comment
+#   [Re-Re-implementation]         result for (gt image) baboon.png: 5.72957566614084 (5.7296)
+#       score using https://github.com/xinntao/Real-ESRGAN/blob/master/tests/data/gt/baboon.png on colab
 #
 #_________________________________________________________________________
 
@@ -601,7 +605,7 @@ def calc_niqe_with_pil(img_pil, **kargs):
     img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
     
     try:
-        #파일 이름을 포함한 경로
+        #파일 이름을 포함한 경로 (FULL Path of niqe_pris_params.npz)
         path_npz = kargs['path_npz']
         return calculate_niqe(img_cv, 0, path_niqe_pris_params = path_npz)
     except:
