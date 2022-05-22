@@ -23,3 +23,8 @@ DeepLab v3 Plus model
 from https://github.com/swz30/MPRNet/blob/main/Denoising/train.py
 
 MPRNet (Denoising) model & loss
+
+# 3, model_esrgan.py
+from https://github.com/Lornatang/ESRGAN-PyTorch/blob/main/model.py
+
+ESRGAN - ready for RRDBNet only yet... now working on
