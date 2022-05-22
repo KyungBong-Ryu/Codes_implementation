@@ -11,3 +11,15 @@ Typically, images smaller than 96x96 generate error with "min() related error". 
 -> Similar error orrurs in original MATLAB ver function(http://live.ece.utexas.edu/research/quality/niqe_release.zip)
 
    I guess patches in NIQE method (paper: MAKING A “COMPLETELY BLIND” IMAGE QUALITY ANALYZER) is 96x96 size, so images smaller than this can't be used.
+
+# [Models] -----------------------------------
+
+# 1. model_deeplab_v3_plus.py
+from https://github.com/yassouali/pytorch-segmentation/blob/master/models/%20deeplabv3_plus_xception.py
+
+DeepLab v3 Plus model
+
+# 2. model_mprnet.py
+from https://github.com/swz30/MPRNet/blob/main/Denoising/train.py
+
+MPRNet (Denoising) model & loss
