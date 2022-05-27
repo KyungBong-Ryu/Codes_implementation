@@ -21,10 +21,30 @@
 #       loss = pixel_criterion(predicted, input_data)
 #
 #   2. for GAN(ESRGAN) train & test
-#
-#
-#
-#
+#       #init
+#       from model_esrgan import Generator, Discriminator, ContentLoss
+#       
+#       pixel_criterion = torch.nn.L1Loss() #pytorch
+#       content_criterion = ContentLoss(#feature extraction node
+#                                       "features.34"
+#                                       #feature_model_normalize_mean
+#                                      ,[0.485, 0.456, 0.406]
+#                                       #feature_model_normalize_std
+#                                      ,[0.229, 0.224, 0.225]
+#                                      )
+#       adversarial_criterion = torch.nn.BCEWithLogitsLoss() #pytorch
+#       
+#       #model & loss use
+#       model_g  = Generator()
+#       model_d = Discriminator() #check input image size!
+#       loss_d = (adversarial_criterion(hr_output - torch.mean(sr_output), real_label) * 0.5
+#                +adversarial_criterion(sr_output - torch.mean(hr_output), fake_label) * 0.5
+#                )
+#       loss_g = (pixel_criterion(predicted, answer) * 0.01
+#                +content_criterion(predicted, answer) * 1.0
+#                +loss_d * 0.005
+#                ) 
+#       
 #----------------------------------------------------------------------------------------
 #How to use (ESRGAN)
 #   1. Not Ready Yet...
@@ -280,6 +300,9 @@ class ContentLoss(nn.Module):
 
         return content_loss
 
+
+
+# <2> ***********************************************************************************************
 
 
 
