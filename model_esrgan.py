@@ -44,6 +44,9 @@
 #       tensor_d_hypo_hr = model_d(tensor_y)      #HR input
 #       tensor_d_hypo_sr = model_d(tensor_g_hypo) #SR input
 #       
+#       tensor_d_answer_real = torch.full([current_batch_size, 1], 1.0, dtype=torch.float, device=torch.device(device))
+#       tensor_d_answer_fake = torch.full([current_batch_size, 1], 0.0, dtype=torch.float, device=torch.device(device))
+#
 #       loss_d = (criterion_d(tensor_d_hypo_hr - torch.mean(tensor_d_hypo_sr), tensor_d_answer_real) * 0.5
 #                +criterion_d(tensor_d_hypo_sr - torch.mean(tensor_d_hypo_hr), tensor_d_answer_fake) * 0.5
 #                )
