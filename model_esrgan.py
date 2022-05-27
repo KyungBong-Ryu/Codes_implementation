@@ -9,7 +9,7 @@
 #       for more details (Scale Factor = 4, Patch = 128x128)
 #
 #----------------------------------------------------------------------------------------
-#How to use (RRDBNet)
+#How to use (RRDBNet / ESRGAN)
 #   1. for Net(RRDBNet) train & test
 #       #init
 #       from model_esrgan import Generator as RRDBNet
@@ -19,6 +19,8 @@
 #       #model & loss use
 #       predicted = model_sr(input_data)
 #       loss = pixel_criterion(predicted, input_data)
+#
+#
 #
 #   2. for GAN(ESRGAN) train & test
 #       #init
@@ -37,17 +39,19 @@
 #       #model & loss use
 #       model_g  = Generator()
 #       model_d = Discriminator() #check input image size!
-#       loss_d = (adversarial_criterion(hr_output - torch.mean(sr_output), real_label) * 0.5
-#                +adversarial_criterion(sr_output - torch.mean(hr_output), fake_label) * 0.5
+#       
+#       tensor_g_hypo    = model_g(tensor_x)      #LR input
+#       tensor_d_hypo_hr = model_d(tensor_y)      #HR input
+#       tensor_d_hypo_sr = model_d(tensor_g_hypo) #SR input
+#       
+#       loss_d = (criterion_d(tensor_d_hypo_hr - torch.mean(tensor_d_hypo_sr), tensor_d_answer_real) * 0.5
+#                +criterion_d(tensor_d_hypo_sr - torch.mean(tensor_d_hypo_hr), tensor_d_answer_fake) * 0.5
 #                )
 #       loss_g = (pixel_criterion(predicted, answer) * 0.01
 #                +content_criterion(predicted, answer) * 1.0
 #                +loss_d * 0.005
 #                ) 
-#       
-#----------------------------------------------------------------------------------------
-#How to use (ESRGAN)
-#   1. Not Ready Yet...
+#
 #
 #
 #
