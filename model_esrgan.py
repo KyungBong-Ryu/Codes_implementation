@@ -324,11 +324,15 @@ class ContentLoss(nn.Module):
     def __init__(self, feature_model_extractor_node: str,
                  feature_model_normalize_mean: list,
                  feature_model_normalize_std: list) -> None:
+        
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
         super(ContentLoss, self).__init__()
         # Get the name of the specified feature extraction node
         self.feature_model_extractor_node = feature_model_extractor_node
         # Load the VGG19 model trained on the ImageNet dataset.
         model = models.vgg19(True)
+        model.to(device)
         # Extract the thirty-fifth layer output in the VGG19 model as the content loss.
         self.feature_extractor = create_feature_extractor(model, [self.feature_model_extractor_node])
         # set to validation mode
