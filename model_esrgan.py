@@ -338,14 +338,10 @@ class ContentLoss(nn.Module):
         for model_parameters in self.feature_extractor.parameters():
             model_parameters.requires_grad = False
         
-        
         # The preprocessing method of the input data.
         # This is the VGG model preprocessing method of the ImageNet dataset
         self.normalize = transforms.Normalize(feature_model_normalize_mean, feature_model_normalize_std)
         
-        
-        #used in model reload require check
-        self.prev_is_AMP = False
     
     def forward(self, sr_tensor: torch.Tensor, hr_tensor: torch.Tensor, is_AMP: bool) -> torch.Tensor:
         # Standardized operations
@@ -356,26 +352,17 @@ class ContentLoss(nn.Module):
         #print("is_AMP", is_AMP)
         #print("self.prev_is_AMP", self.prev_is_AMP)
         
-        '''
-        if not is_AMP == self.prev_is_AMP:
-            with torch.cuda.amp.autocast(enabled=is_AMP):
-                # Load the VGG19 model trained on the ImageNet dataset.
-                model = models.vgg19(True)
-                # Extract the thirty-fifth layer output in the VGG19 model as the content loss.
-                self.feature_extractor = create_feature_extractor(model, [self.feature_model_extractor_node])
-                # set to validation mode
-                self.feature_extractor.eval()
-            
-            print("feature_extractor AMP option changed:", self.prev_is_AMP, "->", is_AMP)
-            self.prev_is_AMP = is_AMP
-        '''
-        with torch.cuda.amp.autocast(enabled=is_AMP):
+        if is_AMP:
+            sr_feature = self.feature_extractor(sr_tensor.to(torch.float32))[self.feature_model_extractor_node]
+            hr_feature = self.feature_extractor(hr_tensor.to(torch.float32))[self.feature_model_extractor_node]
+        else
             sr_feature = self.feature_extractor(sr_tensor)[self.feature_model_extractor_node]
             hr_feature = self.feature_extractor(hr_tensor)[self.feature_model_extractor_node]
-
+        
+        with torch.cuda.amp.autocast(enabled=is_AMP):
             # Find the feature map difference between the two images
             content_loss = F.l1_loss(sr_feature, hr_feature)
-
-            return content_loss
+        
+        return content_loss
 
 print("End of model_esrgan.py")
