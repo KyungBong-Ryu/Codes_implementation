@@ -355,7 +355,7 @@ class ContentLoss(nn.Module):
         if is_AMP:
             sr_feature = self.feature_extractor(sr_tensor.to(torch.float32))[self.feature_model_extractor_node]
             hr_feature = self.feature_extractor(hr_tensor.to(torch.float32))[self.feature_model_extractor_node]
-        else
+        else:
             sr_feature = self.feature_extractor(sr_tensor)[self.feature_model_extractor_node]
             hr_feature = self.feature_extractor(hr_tensor)[self.feature_model_extractor_node]
         
