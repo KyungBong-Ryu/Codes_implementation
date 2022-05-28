@@ -353,9 +353,10 @@ class ContentLoss(nn.Module):
         hr_tensor = self.normalize(hr_tensor)
         
         #does loss calclation processed under "torch.cuda.amp.autocast(enabled=True):" effect?
-        print("is_AMP", is_AMP)
-        print("self.prev_is_AMP", self.prev_is_AMP)
+        #print("is_AMP", is_AMP)
+        #print("self.prev_is_AMP", self.prev_is_AMP)
         
+        '''
         if not is_AMP == self.prev_is_AMP:
             with torch.cuda.amp.autocast(enabled=is_AMP):
                 # Load the VGG19 model trained on the ImageNet dataset.
@@ -367,13 +368,14 @@ class ContentLoss(nn.Module):
             
             print("feature_extractor AMP option changed:", self.prev_is_AMP, "->", is_AMP)
             self.prev_is_AMP = is_AMP
-        
-        sr_feature = self.feature_extractor(sr_tensor)[self.feature_model_extractor_node]
-        hr_feature = self.feature_extractor(hr_tensor)[self.feature_model_extractor_node]
+        '''
+        with torch.cuda.amp.autocast(enabled=is_AMP):
+            sr_feature = self.feature_extractor(sr_tensor)[self.feature_model_extractor_node]
+            hr_feature = self.feature_extractor(hr_tensor)[self.feature_model_extractor_node]
 
-        # Find the feature map difference between the two images
-        content_loss = F.l1_loss(sr_feature, hr_feature)
+            # Find the feature map difference between the two images
+            content_loss = F.l1_loss(sr_feature, hr_feature)
 
-        return content_loss
+            return content_loss
 
 print("End of model_esrgan.py")
