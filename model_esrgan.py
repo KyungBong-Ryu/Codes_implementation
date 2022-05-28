@@ -311,7 +311,7 @@ class ContentLoss(nn.Module):
 
 # <2> ***********************************************************************************************
 
-#fixed
+#fixed for loss calc with "Automatic Mixed Precision" -> not verified yet
 class ContentLoss(nn.Module):
     """Constructs a content loss function based on the VGG19 network.
     Using high-level feature mapping layers from the latter layers will focus more on the texture content of the image.
