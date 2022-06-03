@@ -1933,8 +1933,8 @@ class loss_for_dsrl():
     
     
     def FALoss(self, in_ft_1, in_ft_2):
-        in_b_1, in_c_1, in_h_1, in_w_1 = ft_1.size()
-        in_b_2, in_c_2, in_h_2, in_w_2 = ft_2.size()
+        in_b_1, in_c_1, in_h_1, in_w_1 = in_ft_1.size()
+        in_b_2, in_c_2, in_h_2, in_w_2 = in_ft_2.size()
         if in_c_1 != 1 or in_c_2 != 1:
             print("(exc) feature map should be [b, 1, h, w] shape")
             print("feature map 1 shape:", in_b_1, in_c_1, in_h_1, in_w_1)
