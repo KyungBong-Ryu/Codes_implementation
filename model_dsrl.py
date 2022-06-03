@@ -1755,7 +1755,9 @@ class DeepLab_DSRL(nn.Module):
         x_sr_up=self.up_edsr_3(x_sr_up)
         x_sr_up=self.up_conv_last(x_sr_up)
 
-        return x_seg_up,x_sr_up,self.pointwise(x_seg_up),x_sr_up
+        #@@@ 수정중
+        #return x_seg_up,x_sr_up,self.pointwise(x_seg_up),x_sr_up
+        return x_seg_up,x_sr_up,x_seg_up,x_sr_up
 
     def freeze_bn(self):
         for m in self.modules():
