@@ -9,7 +9,10 @@
 # 
 # Original code has gone... so I found Re-implementation one below. (with MIT license)
 # https://github.com/Dootmaan/DSRL
-# 
+# https://github.com/sanje2v/DualSuperResLearningForSemSeg
+#
+# modified for Scale Factor x4
+#
 # [how to use]
 # 1. model @@@ 각 인자들 설명 추가 필요
 #   model = DeepLab_DSRL(num_classes= 
@@ -31,6 +34,9 @@ import sys
 
 # [model] ****************************************************************************************************
 # https://github.com/Dootmaan/DSRL/blob/1822d6469dd8cca4b61afc42daa6df98067b4f80/modeling/deeplab.py
+# -> most parts
+# https://github.com/sanje2v/DualSuperResLearningForSemSeg/blob/master/models/DSRL.py#L53
+# -> few parts
 
 import torch
 import torch.nn as nn
@@ -1716,11 +1722,12 @@ class EDSRConv(torch.nn.Module):
 
 
 class DeepLab_DSRL(nn.Module):
-    def __init__(self, backbone='resnet', output_stride=16, num_classes=21, scale_factor = 2,
+    def __init__(self, backbone='resnet', output_stride=16, num_classes=21, scale_factor = 4,
                  sync_bn=True, freeze_bn=False, pretrained_backbone = False):
         super(DeepLab_DSRL, self).__init__()
         
-        print("\n\n(in model init)")
+        print("\n\n(in DeepLab_DSRL model init)")
+        print("<Caution> This code supports only for scale_factor x4")
         print("model backbone:", backbone)
         print("model num_classes:", num_classes)
         print("model scale_factor:", scale_factor)
@@ -1748,6 +1755,12 @@ class DeepLab_DSRL(nn.Module):
         )
         
         # upsample after SSSR decoder
+        # inspired from https://github.com/sanje2v/DualSuperResLearningForSemSeg/blob/master/models/DSRL.py#L53
+        # about license: https://github.com/sanje2v/DualSuperResLearningForSemSeg#license
+        #   (2022.06.04) license description from above link
+        #   Any part of this source code should ONLY be reused for research purposes. 
+        #   This repo contains some modified source code from PyTorch and other sources 
+        #   who have been credited in source file using them.
         self.up_ss_total = nn.Sequential(nn.UpsamplingBilinear2d(scale_factor=2.0)
                                         ,nn.Dropout(p=0.2)
                                         ,nn.ConvTranspose2d(in_channels=num_classes
@@ -1777,6 +1790,8 @@ class DeepLab_DSRL(nn.Module):
                                                            ,padding=0
                                                            ,bias=True
                                                            )
+                                        ,nn.BatchNorm2d(num_features=num_classes)
+                                        ,nn.ReLU()
                                         )
         
         # upsample after SISR decoder
@@ -2092,12 +2107,17 @@ class loss_for_dsrl():
         return loss_l1(sm_1, sm_2)
         
     
-    def calc(self, hypo_label, hypo_sr, feature_label, feature_sr, ans_label, ans_sr):
-        
-        return (self.loss_ce(hypo_label, ans_label)    * self.weight_loss_ce
-               +self.loss_mse(hypo_sr, ans_sr)         * self.weight_loss_mse
-               +self.FALoss(feature_label, feature_sr) * self.weight_loss_fa
-               )
+    def calc(self, is_AMP = True, hypo_label, hypo_sr, feature_label, feature_sr, ans_label, ans_sr):
+        if is_AMP:
+            return (self.loss_ce(hypo_label, ans_label)    * self.weight_loss_ce
+                   +self.loss_mse(hypo_sr, ans_sr)         * self.weight_loss_mse
+                   +self.FALoss(feature_label.to(torch.float32), feature_sr.to(torch.float32)) * self.weight_loss_fa
+                   )
+        else:
+            return (self.loss_ce(hypo_label, ans_label)    * self.weight_loss_ce
+                   +self.loss_mse(hypo_sr, ans_sr)         * self.weight_loss_mse
+                   +self.FALoss(feature_label, feature_sr) * self.weight_loss_fa
+                   )
 
 
 
