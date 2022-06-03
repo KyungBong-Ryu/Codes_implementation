@@ -18,6 +18,7 @@
 #   model = DeepLab_DSRL(num_classes= 
 #                       ,backbone= "xception"
 #                       ,pretrained_backbone = False
+#                       ,scale_factor = 4
 #                       )
 #
 #   output,output_sr,fea_seg,fea_sr = model(input_img)
@@ -25,7 +26,14 @@
 # 2. loss
 #   criterion = loss_for_dsrl()
 #   
-#   loss = criterion.calc(output,output_sr,fea_seg,fea_sr,ans_label,ans_sr)
+#   loss = criterion.calc(output
+#                        ,output_sr
+#                        ,fea_seg
+#                        ,fea_sr
+#                        ,ans_label
+#                        ,ans_sr
+#                        ,is_AMP = True      #(bool) is used in Automatic Mixed Precision
+#                        )
 #   
 ############################################################################
 
@@ -1768,7 +1776,7 @@ class DeepLab_DSRL(nn.Module):
                                                            ,kernel_size=2
                                                            ,stride=2
                                                            ,padding=0
-                                                           ,bias=False
+                                                           ,bias=True
                                                            )
                                         ,nn.BatchNorm2d(num_features=num_classes)
                                         ,nn.ReLU()
@@ -1834,23 +1842,23 @@ class DeepLab_DSRL(nn.Module):
         
 
     def forward(self, input):
-        print("\n\n(DeepLab_DSRL in) input:", input.size())
+        # print("\n\n(DeepLab_DSRL in) input:", input.size())
         
         x, low_level_feat = self.backbone(input)
         
-        print("\n\n(DeepLab_DSRL backbone) x, low_level_feat:", x.size(), low_level_feat.size())
+        # print("\n\n(DeepLab_DSRL backbone) x, low_level_feat:", x.size(), low_level_feat.size())
         
         x = self.aspp(x)
         
-        print("\n\n(DeepLab_DSRL aspp) x:", x.size())
+        # print("\n\n(DeepLab_DSRL aspp) x:", x.size())
         
         x_seg = self.decoder(x, low_level_feat)
         
-        print("\n\n(DeepLab_DSRL decoder) x_seg", x_seg.size())
+        # print("\n\n(DeepLab_DSRL decoder) x_seg", x_seg.size())
         
         x_sr= self.sr_decoder(x, low_level_feat)
         
-        print("\n\n(DeepLab_DSRL sr_decoder) x_sr", x_sr.size())
+        # print("\n\n(DeepLab_DSRL sr_decoder) x_sr", x_sr.size())
         
         #set output size
         _, _, tmp_h, tmp_w = input.size()
@@ -1860,9 +1868,9 @@ class DeepLab_DSRL(nn.Module):
         # x_seg_up = F.interpolate(x_seg, size=input.size()[2:], mode='bilinear', align_corners=True)
         # x_seg_up = F.interpolate(x_seg_up,size=[2*i for i in input.size()[2:]], mode='bilinear', align_corners=True)
         
-        print("\n\n(in model interpolate ss) before:", x_seg.size())
+        # print("\n\n(in model interpolate ss) before:", x_seg.size())
         x_seg_up = self.up_ss_total(x_seg)
-        print("\n\n(in model interpolate ss) after:", x_seg_up.size())
+        # print("\n\n(in model interpolate ss) after:", x_seg_up.size())
         
         x_seg_up = F.interpolate(x_seg_up, size=tmp_out_size, mode='bilinear', align_corners=True)
         
@@ -1874,9 +1882,9 @@ class DeepLab_DSRL(nn.Module):
         x_sr_up=self.up_edsr_3(x_sr_up)
         x_sr_up = self.up_sr_4(x_sr_up)
         x_sr_up=self.up_edsr_4(x_sr_up)
-        print("\n\n(in model interpolate sr) before:", x_sr_up.size())
+        # print("\n\n(in model interpolate sr) before:", x_sr_up.size())
         x_sr_up = F.interpolate(x_sr_up, size=tmp_out_size, mode='bilinear', align_corners=True)
-        print("\n\n(in model interpolate sr) after:", x_sr_up.size())
+        # print("\n\n(in model interpolate sr) after:", x_sr_up.size())
         x_sr_up=self.up_conv_last(x_sr_up)
         
         #@@@ 수정중
@@ -2107,8 +2115,8 @@ class loss_for_dsrl():
         return loss_l1(sm_1, sm_2)
         
     
-    def calc(self, is_AMP = True, hypo_label, hypo_sr, feature_label, feature_sr, ans_label, ans_sr):
-        if is_AMP:
+    def calc(self, hypo_label, hypo_sr, feature_label, feature_sr, ans_label, ans_sr, is_AMP = True):
+        if is_AMP: #is this loss used with Automatic Mixed Precision?
             return (self.loss_ce(hypo_label, ans_label)    * self.weight_loss_ce
                    +self.loss_mse(hypo_sr, ans_sr)         * self.weight_loss_mse
                    +self.FALoss(feature_label.to(torch.float32), feature_sr.to(torch.float32)) * self.weight_loss_fa
