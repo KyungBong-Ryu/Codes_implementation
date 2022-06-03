@@ -1746,16 +1746,77 @@ class DeepLab_DSRL(nn.Module):
             torch.nn.BatchNorm2d(3),  #添加了BN层 -> translation: BN layer has been added
             torch.nn.ReLU(inplace=True)
         )
-
+        
+        # upsample after SSSR decoder
+        self.up_ss_total = nn.Sequential(nn.UpsamplingBilinear2d(scale_factor=2.0)
+                                        ,nn.Dropout(p=0.2)
+                                        ,nn.ConvTranspose2d(in_channels=num_classes
+                                                           ,out_channels=num_classes
+                                                           ,kernel_size=2
+                                                           ,stride=2
+                                                           ,padding=0
+                                                           ,bias=False
+                                                           )
+                                        ,nn.BatchNorm2d(num_features=num_classes)
+                                        ,nn.ReLU()
+                                        ,nn.Dropout(p=0.2)
+                                        ,nn.ConvTranspose2d(in_channels=num_classes
+                                                           ,out_channels=num_classes
+                                                           ,kernel_size=2
+                                                           ,stride=2
+                                                           ,padding=0
+                                                           ,bias=True
+                                                           )
+                                        ,nn.BatchNorm2d(num_features=num_classes)
+                                        ,nn.ReLU()
+                                        ,nn.Dropout(p=0.2)
+                                        ,nn.ConvTranspose2d(in_channels=num_classes
+                                                           ,out_channels=num_classes
+                                                           ,kernel_size=2
+                                                           ,stride=2
+                                                           ,padding=0
+                                                           ,bias=True
+                                                           )
+                                        )
+        
+        # upsample after SISR decoder
         self.up_sr_1 = nn.ConvTranspose2d(64, 64, 2, stride=2) 
         self.up_edsr_1 = EDSRConv(64,64)
         self.up_sr_2 = nn.ConvTranspose2d(64, 32, 2, stride=2) 
         self.up_edsr_2 = EDSRConv(32,32)
         self.up_sr_3 = nn.ConvTranspose2d(32, 16, 2, stride=2) 
         self.up_edsr_3 = EDSRConv(16,16)
-        self.up_conv_last = nn.Conv2d(16,3,1)
-
+        #added 2 layer for scale factor x4
+        self.up_sr_4 = nn.ConvTranspose2d(16, 8, 2, stride=2) 
+        self.up_edsr_4 = EDSRConv(8,8)
+        self.up_conv_last = nn.Conv2d(8,3,1)
+        
+        
+        
         self.freeze_bn = freeze_bn
+        
+        # SubSampling + BN + ReLU
+        self.feature_transform_ss = nn.Sequential(nn.Conv2d(in_channels=num_classes
+                                                           ,out_channels=1
+                                                           ,kernel_size=1
+                                                           ,stride=8
+                                                           ,padding=0
+                                                           ,bias=False
+                                                           )                       # layer: 1x1 conv
+                                                 ,nn.BatchNorm2d(num_features=1)   # layer: Batch Norm
+                                                 ,nn.ReLU()                        # layer: ReLU
+                                                 )
+        
+        # only with SubSampling(+ Feature Transform)
+        self.feature_transform_sr = nn.Sequential(nn.Conv2d(in_channels=3   #RGB channels
+                                                           ,out_channels=1
+                                                           ,kernel_size=1
+                                                           ,stride=8
+                                                           ,padding=0
+                                                           ,bias=False
+                                                           )                       # layer: 1x1 conv
+                                                 )
+        
 
     def forward(self, input):
         print("\n\n(DeepLab_DSRL in) input:", input.size())
@@ -1778,29 +1839,34 @@ class DeepLab_DSRL(nn.Module):
         
         #set output size
         _, _, tmp_h, tmp_w = input.size()
-        tmp_out_size_1 = (tmp_h, tmp_w)
-        tmp_out_size_2 = (int(tmp_h * self.scale_factor), int(tmp_w * self.scale_factor))
+        tmp_out_size = (int(tmp_h * self.scale_factor), int(tmp_w * self.scale_factor))
         
         # Original code
         # x_seg_up = F.interpolate(x_seg, size=input.size()[2:], mode='bilinear', align_corners=True)
         # x_seg_up = F.interpolate(x_seg_up,size=[2*i for i in input.size()[2:]], mode='bilinear', align_corners=True)
         
-        x_seg_up = F.interpolate(x_seg,    size=tmp_out_size_1, mode='bilinear', align_corners=True)
-        x_seg_up = F.interpolate(x_seg_up, size=tmp_out_size_2, mode='bilinear', align_corners=True)
+        print("\n\n(in model interpolate ss) before:", x_seg.size())
+        x_seg_up = self.up_ss_total(x_seg)
+        print("\n\n(in model interpolate ss) after:", x_seg_up.size())
+        
+        x_seg_up = F.interpolate(x_seg_up, size=tmp_out_size, mode='bilinear', align_corners=True)
         
         x_sr_up = self.up_sr_1(x_sr)
         x_sr_up=self.up_edsr_1(x_sr_up)
-
         x_sr_up = self.up_sr_2(x_sr_up)
         x_sr_up=self.up_edsr_2(x_sr_up)
-
         x_sr_up = self.up_sr_3(x_sr_up)
         x_sr_up=self.up_edsr_3(x_sr_up)
+        x_sr_up = self.up_sr_4(x_sr_up)
+        x_sr_up=self.up_edsr_4(x_sr_up)
+        print("\n\n(in model interpolate sr) before:", x_sr_up.size())
+        x_sr_up = F.interpolate(x_sr_up, size=tmp_out_size, mode='bilinear', align_corners=True)
+        print("\n\n(in model interpolate sr) after:", x_sr_up.size())
         x_sr_up=self.up_conv_last(x_sr_up)
-
+        
         #@@@ 수정중
         #return x_seg_up,x_sr_up,self.pointwise(x_seg_up),x_sr_up
-        return x_seg_up,x_sr_up,x_seg_up,x_sr_up
+        return x_seg_up, x_sr_up, self.feature_transform_ss(x_seg_up), self.feature_transform_sr(x_sr_up)
 
     def freeze_bn(self):
         for m in self.modules():
@@ -1990,10 +2056,13 @@ class loss_for_dsrl():
             print("feature map 2 shape:", in_b_2, in_c_2, in_h_2, in_w_2)
             sys.exit(9)
         
-        # SubSample
-        sub_sample_rate = 8
-        ft_1 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_1)
-        ft_2 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_2)
+        # SubSample -> model generates subsampled feature
+        # sub_sample_rate = 8
+        # ft_1 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_1)
+        # ft_2 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_2)
+        
+        ft_1 = in_ft_1
+        ft_2 = in_ft_2
         
         # L2 norm
         ft_1_norm = torch.linalg.norm(ft_1, dim = (2,3), ord = 2, keepdims = True)
