@@ -1614,15 +1614,15 @@ if True:
         '''
     #>>> === xception
 
-    def build_backbone(backbone, output_stride, BatchNorm):
+    def build_backbone(backbone, output_stride, BatchNorm, pretrained = True):
         if backbone == 'resnet':
-            return ResNet101(output_stride, BatchNorm)
+            return ResNet101(output_stride, BatchNorm, pretrained)
         elif backbone == 'xception':
-            return AlignedXception(output_stride, BatchNorm)
+            return AlignedXception(output_stride, BatchNorm, pretrained)
         elif backbone == 'drn':
-            return drn_d_54(BatchNorm)
+            return drn_d_54(BatchNorm, pretrained)
         elif backbone == 'mobilenet':
-            return MobileNetV2(output_stride, BatchNorm)
+            return MobileNetV2(output_stride, BatchNorm, pretrained)
         else:
             raise NotImplementedError
 #>>> from modeling.backbone import build_backbone
@@ -1703,7 +1703,7 @@ class EDSRConv(torch.nn.Module):
 
 class DeepLab_DSRL(nn.Module):
     def __init__(self, backbone='resnet', output_stride=16, num_classes=21,
-                 sync_bn=True, freeze_bn=False):
+                 sync_bn=True, freeze_bn=False, pretrained_backbone = False):
         super(DeepLab_DSRL, self).__init__()
         
         print("\n model num_classes:", num_classes)
@@ -1716,7 +1716,7 @@ class DeepLab_DSRL(nn.Module):
         else:
             BatchNorm = nn.BatchNorm2d
 
-        self.backbone = build_backbone(backbone, output_stride, BatchNorm)
+        self.backbone = build_backbone(backbone, output_stride, BatchNorm, pretrained_backbone)
         self.aspp = build_aspp(backbone, output_stride, BatchNorm)
         self.decoder = build_decoder(num_classes, backbone, BatchNorm)
         self.sr_decoder = build_sr_decoder(num_classes,backbone,BatchNorm)
