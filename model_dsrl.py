@@ -1637,9 +1637,9 @@ if True:
 
 #<<< from modeling.sr_decoder import build_sr_decoder
 if True:
-    class Decoder(nn.Module):
+    class Decoder_SR(nn.Module):
         def __init__(self, num_classes, backbone, BatchNorm):
-            super(Decoder, self).__init__()
+            super(Decoder_SR, self).__init__()
             if backbone == 'resnet' or backbone == 'drn':
                 low_level_inplanes = 256
             elif backbone == 'xception':
@@ -1687,7 +1687,7 @@ if True:
                     m.bias.data.zero_()
 
     def build_sr_decoder(num_classes, backbone, BatchNorm):
-        return Decoder(num_classes, backbone, BatchNorm)
+        return Decoder_SR(num_classes, backbone, BatchNorm)
 #>>> from modeling.sr_decoder import build_sr_decoder
 
 class EDSRConv(torch.nn.Module):
