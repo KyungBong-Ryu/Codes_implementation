@@ -578,6 +578,12 @@ if True:
                                            nn.ReLU(),
                                            nn.Dropout(0.1),
                                            nn.Conv2d(256, num_classes, kernel_size=1, stride=1))
+            
+            #@@@
+            print("\n\n")
+            print("(class Decoder) init num_classes:", num_classes)
+            print("\n\n")
+            
             self._init_weight()
 
 
@@ -1703,15 +1709,19 @@ class EDSRConv(torch.nn.Module):
 
 
 class DeepLab_DSRL(nn.Module):
-    def __init__(self, backbone='resnet', output_stride=16, num_classes=21,
+    def __init__(self, backbone='resnet', output_stride=16, num_classes=21, scale_factor = 2,
                  sync_bn=True, freeze_bn=False, pretrained_backbone = False):
         super(DeepLab_DSRL, self).__init__()
         
-        print("\n model num_classes:", num_classes)
+        print("\n\n(in model init) model num_classes:", num_classes)
+        print("\n\n")
         
         if backbone == 'drn':
             output_stride = 8
-
+        
+        #output size scale factor
+        self.scale_factor = scale_factor
+        
         if sync_bn == True:
             BatchNorm = SynchronizedBatchNorm2d
         else:
@@ -1738,13 +1748,36 @@ class DeepLab_DSRL(nn.Module):
         self.freeze_bn = freeze_bn
 
     def forward(self, input):
+        print("\n\n(DeepLab_DSRL in) input:", input.size())
+        
         x, low_level_feat = self.backbone(input)
+        
+        print("\n\n(DeepLab_DSRL backbone) x, low_level_feat:", x.size(), low_level_feat.size())
+        
         x = self.aspp(x)
+        
+        print("\n\n(DeepLab_DSRL aspp) x:", x.size())
+        
         x_seg = self.decoder(x, low_level_feat)
+        
+        print("\n\n(DeepLab_DSRL decoder) x_seg", x_seg.size())
+        
         x_sr= self.sr_decoder(x, low_level_feat)
-        x_seg_up = F.interpolate(x_seg, size=input.size()[2:], mode='bilinear', align_corners=True)
-        x_seg_up = F.interpolate(x_seg_up,size=[2*i for i in input.size()[2:]], mode='bilinear', align_corners=True)
-
+        
+        print("\n\n(DeepLab_DSRL sr_decoder) x_sr", x_sr.size())
+        
+        #set output size
+        _, _, tmp_h, tmp_w = input.size()
+        tmp_out_size_1 = (tmp_h, tmp_w)
+        tmp_out_size_2 = (int(tmp_h * self.scale_factor), int(tmp_w * self.scale_factor))
+        
+        # Original code
+        # x_seg_up = F.interpolate(x_seg, size=input.size()[2:], mode='bilinear', align_corners=True)
+        # x_seg_up = F.interpolate(x_seg_up,size=[2*i for i in input.size()[2:]], mode='bilinear', align_corners=True)
+        
+        x_seg_up = F.interpolate(x_seg,    size=tmp_out_size_1, mode='bilinear', align_corners=True)
+        x_seg_up = F.interpolate(x_seg_up, size=tmp_out_size_2, mode='bilinear', align_corners=True)
+        
         x_sr_up = self.up_sr_1(x_sr)
         x_sr_up=self.up_edsr_1(x_sr_up)
 
