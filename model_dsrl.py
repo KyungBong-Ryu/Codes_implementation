@@ -14,6 +14,7 @@
 # 1. model @@@ 각 인자들 설명 추가 필요
 #   model = DeepLab_DSRL(num_classes= 
 #                       ,backbone= "xception"
+#                       ,pretrained_backbone = False
 #                       )
 #
 #   output,output_sr,fea_seg,fea_sr = model(input_img)
