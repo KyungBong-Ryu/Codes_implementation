@@ -32,7 +32,7 @@ from https://github.com/Lornatang/ESRGAN-PyTorch/blob/main/model.py
 
 ESRGAN - ready for RRDBNet only yet... now working on
 
-# 4. model_dsrl.py
+# 4. model_dsrl.py -> not finished!
 from https://github.com/Dootmaan/DSRL
 
 Dual Super-Resolution Learning for semantic segmentation
