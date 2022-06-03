@@ -580,8 +580,9 @@ if True:
                                            nn.Conv2d(256, num_classes, kernel_size=1, stride=1))
             
             #@@@
-            print("\n\n")
-            print("(class Decoder) init num_classes:", num_classes)
+            print("\n\n(class Decoder) init")
+            print("num_classes:", num_classes)
+            print("backbone:", backbone)
             print("\n\n")
             
             self._init_weight()
@@ -1648,7 +1649,12 @@ if True:
                 low_level_inplanes = 24
             else:
                 raise NotImplementedError
-
+            
+            print("\n\n(class Decoder_SR) init")
+            print("num_classes:", num_classes)
+            print("backbone:", backbone)
+            print("\n\n")
+            
             self.conv1 = nn.Conv2d(low_level_inplanes, 48, 1, bias=False)
             self.bn1 = BatchNorm(48)
             self.relu = nn.ReLU()
