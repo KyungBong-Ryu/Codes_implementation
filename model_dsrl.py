@@ -1622,6 +1622,7 @@ if True:
     #>>> === xception
 
     def build_backbone(backbone, output_stride, BatchNorm, pretrained = True):
+        print("\n\n(build_backbone) backbone:", backbone)
         if backbone == 'resnet':
             return ResNet101(output_stride, BatchNorm, pretrained)
         elif backbone == 'xception':
@@ -1713,7 +1714,10 @@ class DeepLab_DSRL(nn.Module):
                  sync_bn=True, freeze_bn=False, pretrained_backbone = False):
         super(DeepLab_DSRL, self).__init__()
         
-        print("\n\n(in model init) model num_classes:", num_classes)
+        print("\n\n(in model init)")
+        print("model backbone:", backbone)
+        print("model num_classes:", num_classes)
+        print("model scale_factor:", scale_factor)
         print("\n\n")
         
         if backbone == 'drn':
