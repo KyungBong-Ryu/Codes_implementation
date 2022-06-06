@@ -1487,10 +1487,12 @@ class loss_for_dsrl():
             sys.exit(9)
         
         # SubSample
-        sub_sample_rate = 8
-        ft_1 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_1)
-        ft_2 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_2)
-        
+        # sub_sample_rate = 8
+        # ft_1 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_1)
+        # ft_2 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_2)
+        # -> subsampled in model
+        ft_1 = in_ft_1
+        ft_2 = in_ft_2
         print("(loss_for_dsrl FALoss) subsampled featuremap size", ft_1.size(), ft_2.size())
         
         # L2 norm
