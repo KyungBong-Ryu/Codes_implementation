@@ -18,8 +18,9 @@
 # [how to use]
 # 1. model
 #   
-#   model = DSRL_D3P(num_classes = 11   #SS labels
-#                   ,scale_factor = 4   #SR ScaleFactor
+#   model = DSRL_D3P(num_classes = 11       #SS labels
+#                   ,backbone='xception'    #SS backbone
+#                   ,scale_factor = 4       #SR ScaleFactor
 #                   )
 #   
 #   out_ss, out_sr, out_feature_ss, out_feature_sr = model(input)
