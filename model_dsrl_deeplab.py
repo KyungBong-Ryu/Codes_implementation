@@ -11,6 +11,7 @@
 # https://github.com/yassouali/pytorch-segmentation/blob/master/models/%20deeplabv3_plus_xception.py #Base code: Deeplab v3 Plus (Xception)
 # 
 # I tried to use codes from below links... But it was not worked for me.
+# So I rewrite some part of codes with these codes below.
 # https://github.com/Dootmaan/DSRL
 # https://github.com/sanje2v/DualSuperResLearningForSemSeg
 # 
@@ -1493,7 +1494,7 @@ class loss_for_dsrl():
         # -> subsampled in model
         ft_1 = in_ft_1
         ft_2 = in_ft_2
-        print("(loss_for_dsrl FALoss) subsampled featuremap size", ft_1.size(), ft_2.size())
+        #print("(loss_for_dsrl FALoss) subsampled featuremap size", ft_1.size(), ft_2.size())
         
         # L2 norm
         ft_1_norm = torch.linalg.norm(ft_1, dim = (2,3), ord = 2, keepdims = True)
