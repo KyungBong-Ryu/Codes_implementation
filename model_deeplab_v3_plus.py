@@ -1188,7 +1188,7 @@ class Decoder(nn.Module):
 '''
 #이름 변경함 DeepLab ->DeepLab_v3_plus
 class DeepLab_v3_plus(BaseModel):
-    def __init__(self, num_classes, in_channels=3, backbone='xception', pretrained=True, 
+    def __init__(self, num_classes, in_channels=3, backbone='xception', pretrained=False, 
                 output_stride=16, freeze_bn=False,freeze_backbone=False, **_):
                 
         super(DeepLab_v3_plus, self).__init__()
