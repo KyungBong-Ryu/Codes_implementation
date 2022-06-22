@@ -7,6 +7,12 @@ https://github.com/swz30/MPRNet/blob/main/Denoising/train.py
 
 #모델에 이미지 입력시, Norm- 시행 안함!!! (ToTensor만 사용함)
 
+# 기존코드에서 변경점
+
+SkipUpSample class는 현재 홀수 크기에서 DownSample된 Feature와 매칭이 안됨
+ex) (45,60) -> (22,30) -> (24,60)
+따라서 이 부분을 수정할 예정
+
 """
 
 import torch
@@ -182,10 +188,26 @@ class SkipUpSample(nn.Module):
         super(SkipUpSample, self).__init__()
         self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
                                 nn.Conv2d(in_channels+s_factor, in_channels, 1, stride=1, padding=0, bias=False))
-
+        self.flag_exc = 0
+        
     def forward(self, x, y):
         x = self.up(x)
-        x = x + y
+        try:
+            x = x + y
+        except:
+            if self.flag_exc == 0:
+                print("\n(exc) in class SkipUpSample")
+                print("x shape:", x.shape)
+                print("y shape:", y.shape)
+                print("operation: x = x + y")
+                print("x resized to y")
+                self.flag_exc = 1
+            
+            _, _, y_h , y_w = y.shape
+            layer_exc = nn.Upsample(size = (y_h , y_w), mode='bilinear', align_corners=False)
+            
+            x = layer_exc(x) + y
+            
         return x
 
 ##########################################################################
