@@ -10,7 +10,7 @@ https://github.com/swz30/MPRNet/blob/main/Denoising/train.py
 # 기존코드에서 변경점
 
 SkipUpSample class는 현재 홀수 크기에서 DownSample된 Feature와 매칭이 안됨
-ex) (45,60) -> (22,30) -> (24,60)
+ex) (45,60) -> "Downscale x2" -> (22,30) -> "Upscale x2" -> (44,60)
 따라서 이 부분을 수정할 예정
 
 """
