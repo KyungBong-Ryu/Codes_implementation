@@ -11,7 +11,9 @@ https://github.com/swz30/MPRNet/blob/main/Denoising/train.py
 
 SkipUpSample class는 현재 홀수 크기에서 DownSample된 Feature와 매칭이 안됨
 ex) (45,60) -> "Downscale x2" -> (22,30) -> "Upscale x2" -> (44,60)
-따라서 이 부분을 수정할 예정
+따라서 이 부분을 수정함
+
+사전 upscale 기능을 추가함
 
 """
 
@@ -268,9 +270,13 @@ class ORSNet(nn.Module):
 # model_restoration = MPRNet()
 # model_restoration.cuda()
 class MPRNet(nn.Module):
-    def __init__(self, in_c=3, out_c=3, n_feat=80, scale_unetfeats=48, scale_orsnetfeats=32, num_cab=8, kernel_size=3, reduction=4, bias=False):
+    def __init__(self, in_c=3, out_c=3, n_feat=80, scale_unetfeats=48, scale_orsnetfeats=32, num_cab=8, kernel_size=3, reduction=4, bias=False
+                ,pre_upsample=1):
         super(MPRNet, self).__init__()
-
+        
+        self.pre_upsample = pre_upsample
+        self.pre_upsample_layer = nn.Upsample(scale_factor=int(pre_upsample), mode='bilinear', align_corners=True)    # input upsampler (bilinear)
+        
         act=nn.PReLU()
         self.shallow_feat1 = nn.Sequential(conv(in_c, n_feat, kernel_size, bias=bias), CAB(n_feat,kernel_size, reduction, bias=bias, act=act))
         self.shallow_feat2 = nn.Sequential(conv(in_c, n_feat, kernel_size, bias=bias), CAB(n_feat,kernel_size, reduction, bias=bias, act=act))
@@ -293,6 +299,9 @@ class MPRNet(nn.Module):
         self.tail     = conv(n_feat+scale_orsnetfeats, out_c, kernel_size, bias=bias)
 
     def forward(self, x3_img):
+        if self.pre_upsample != 1:
+            x3_img = self.pre_upsample_layer(x3_img)
+        
         # Original-resolution Image for Stage 3
         H = x3_img.size(2)
         W = x3_img.size(3)
