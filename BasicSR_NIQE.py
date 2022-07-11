@@ -1,4 +1,8 @@
-#BasicSR_NIQE.py
+# BasicSR_NIQE.py
+# v 0.1
+#       init
+# v 0.2
+#       added class calc_niqe which load npz file once
 #_________________________________________________________________________
 # origin from https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe.py
 #
@@ -16,15 +20,23 @@
 #            -done
 #
 #--- How to use
-#   1. Download niqe_pris_params.npz file from below link
-#      https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe_pris_params.npz
-#      or npz file located with this py file
-#   2. put it in same folder with this py file
-#   3. use calculate_niqe (BasicSR's code) or calc_niqe_with_pil(Re-implementation code)
-#      if you want calc niqe with pil img, use like below
-#      float_score = calc_niqe_with_pil(img_pil)
-#      or
-#      float_score = calc_niqe_with_pil(img_pil, path_npz = '/content/niqe_pris_params.npz')
+#   1.  Download niqe_pris_params.npz file from below link
+#       https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/niqe_pris_params.npz
+#       or npz file located with this py file
+#
+#   2.  put it in same folder with this py file
+#
+#   3.  v 0.1
+#       use calculate_niqe (BasicSR's code) or calc_niqe_with_pil(Re-implementation code)
+#       if you want calc niqe with pil img, use like below
+#       float_score = calc_niqe_with_pil(img_pil)
+#       or
+#       float_score = calc_niqe_with_pil(img_pil, path_npz = '/content/niqe_pris_params.npz')
+#       
+#       v 0.2
+#       calc_niqe = calc_niqe() or clac_niqe(path_niqe_pris_params="your own path")
+#       
+#       float_score = calc_niqe.with_pil(img_pil)
 #
 #--- Score checked (using function calc_niqe_with_pil)
 #   [MATLAB R2021a]                result for tests/data/baboon.png: 5.72957338       (5.7296)
@@ -43,6 +55,7 @@ import os
 from scipy.ndimage.filters import convolve
 from scipy.special import gamma
 import torch
+import sys
 
 #======================================================================== (1)
 #from basicsr.utils.color_util import bgr2ycbcr
@@ -563,15 +576,24 @@ def calculate_niqe(img, crop_border, input_order='HWC', convert_to='y', **kwargs
         float: NIQE result.
     """
     
-    #<<< @@@ changed this part from original code for colab use
     try:
-        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-        # we use the official params estimated from the pristine dataset.
-        niqe_pris_params = np.load(os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
+        # use loaded params
+        niqe_pris_params = kwargs['niqe_pris_params']
+        print("use pre-loaded niqe_pris_params")
     except:
-        #typically used in colab
-        niqe_pris_params = np.load(kwargs['path_niqe_pris_params'])
-    #>>> @@@
+        # load params
+        #<<< @@@ changed this part from original code for colab use
+        try:
+            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+            # we use the official params estimated from the pristine dataset.
+            
+            niqe_pris_params = np.load(os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
+            
+            #print("npz from...", os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
+        except:
+            #typically used in colab
+            niqe_pris_params = np.load(kwargs['path_niqe_pris_params'])
+        #>>> @@@
     
     mu_pris_param = niqe_pris_params['mu_pris_param']
     cov_pris_param = niqe_pris_params['cov_pris_param']
@@ -598,7 +620,7 @@ def calculate_niqe(img, crop_border, input_order='HWC', convert_to='y', **kwargs
 
 #======================================================================== (6)
 #Easy use for pil_img
-def calc_niqe_with_pil(img_pil, **kargs):
+def calc_niqe_with_pil(img_pil, **kwargs):
     #when pil -> np, shape is HeightWidthChannel (HWC)
     img_np = np.array(img_pil)
     #when np -> cv2, channel convert from RGB to BGR
@@ -606,9 +628,39 @@ def calc_niqe_with_pil(img_pil, **kargs):
     
     try:
         #파일 이름을 포함한 경로 (FULL Path of niqe_pris_params.npz)
-        path_npz = kargs['path_npz']
+        path_npz = kwargs['path_npz']
         return calculate_niqe(img_cv, 0, path_niqe_pris_params = path_npz)
     except:
         return calculate_niqe(img_cv, 0)
+
+
+class calc_niqe():
+    def __init__(self, **kwargs):
+        try:
+            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+            # we use the official params estimated from the pristine dataset.
+            
+            self.niqe_pris_params = np.load(os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
+            print("niqe_pris_params.npz loaded from...", os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
+        except:
+            #typically used in colab
+            try:
+                self.niqe_pris_params = np.load(kwargs['path_niqe_pris_params'])
+                print("niqe_pris_params.npz loaded from...", kwargs['path_niqe_pris_params'])
+            except:
+                print("no path_niqe_pris_params data...")
+                sys.exit(-9)
+        
+    def with_pil(self, img_pil):
+        #when pil -> np, shape is HeightWidthChannel (HWC)
+        img_np = np.array(img_pil)
+        #when np -> cv2, channel convert from RGB to BGR
+        img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+        
+        return calculate_niqe(img_cv, 0, niqe_pris_params=self.niqe_pris_params)
+    
+    
+    
+
 
 print("EoF BasicSR_NIQE.py")
