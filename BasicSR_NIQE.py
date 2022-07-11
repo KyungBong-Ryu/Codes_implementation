@@ -579,7 +579,7 @@ def calculate_niqe(img, crop_border, input_order='HWC', convert_to='y', **kwargs
     try:
         # use loaded params
         niqe_pris_params = kwargs['niqe_pris_params']
-        print("use pre-loaded niqe_pris_params")
+        #print("use pre-loaded niqe_pris_params")
     except:
         # load params
         #<<< @@@ changed this part from original code for colab use
@@ -593,6 +593,8 @@ def calculate_niqe(img, crop_border, input_order='HWC', convert_to='y', **kwargs
         except:
             #typically used in colab
             niqe_pris_params = np.load(kwargs['path_niqe_pris_params'])
+        
+        print("(caution) in calculate_niqe... loaded npz file again!")
         #>>> @@@
     
     mu_pris_param = niqe_pris_params['mu_pris_param']
@@ -641,12 +643,12 @@ class calc_niqe():
             # we use the official params estimated from the pristine dataset.
             
             self.niqe_pris_params = np.load(os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
-            print("niqe_pris_params.npz loaded from...", os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
+            print("niqe_pris_params.npz loaded from ROOT_DIR...", os.path.join(ROOT_DIR, 'niqe_pris_params.npz'))
         except:
             #typically used in colab
             try:
                 self.niqe_pris_params = np.load(kwargs['path_niqe_pris_params'])
-                print("niqe_pris_params.npz loaded from...", kwargs['path_niqe_pris_params'])
+                print("niqe_pris_params.npz loaded from input option...", kwargs['path_niqe_pris_params'])
             except:
                 print("no path_niqe_pris_params data...")
                 sys.exit(-9)
