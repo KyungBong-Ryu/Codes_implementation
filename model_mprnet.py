@@ -231,7 +231,8 @@ class ORB(nn.Module):
 class ORSNet(nn.Module):
     def __init__(self, n_feat, scale_orsnetfeats, kernel_size, reduction, act, bias, scale_unetfeats, num_cab):
         super(ORSNet, self).__init__()
-
+        self.flag_exc = 0
+        
         self.orb1 = ORB(n_feat+scale_orsnetfeats, kernel_size, reduction, act, bias, num_cab)
         self.orb2 = ORB(n_feat+scale_orsnetfeats, kernel_size, reduction, act, bias, num_cab)
         self.orb3 = ORB(n_feat+scale_orsnetfeats, kernel_size, reduction, act, bias, num_cab)
@@ -250,16 +251,55 @@ class ORSNet(nn.Module):
         self.conv_dec2 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
         self.conv_dec3 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
 
-    def forward(self, x, encoder_outs, decoder_outs):
-        x = self.orb1(x)
-        x = x + self.conv_enc1(encoder_outs[0]) + self.conv_dec1(decoder_outs[0])
+    def forward(self, x_init, encoder_outs, decoder_outs):
+        if self.flag_exc == 0:
+            try:
+                x = self.orb1(x_init)
+                x = x + self.conv_enc1(encoder_outs[0]) + self.conv_dec1(decoder_outs[0])
 
-        x = self.orb2(x)
-        x = x + self.conv_enc2(self.up_enc1(encoder_outs[1])) + self.conv_dec2(self.up_dec1(decoder_outs[1]))
+                x = self.orb2(x)
+                x = x + self.conv_enc2(self.up_enc1(encoder_outs[1])) + self.conv_dec2(self.up_dec1(decoder_outs[1]))
 
-        x = self.orb3(x)
-        x = x + self.conv_enc3(self.up_enc2(encoder_outs[2])) + self.conv_dec3(self.up_dec2(decoder_outs[2]))
+                x = self.orb3(x)
+                x = x + self.conv_enc3(self.up_enc2(encoder_outs[2])) + self.conv_dec3(self.up_dec2(decoder_outs[2]))
+            except:
+                self.flag_exc = 1
+                print("\n(exc) ORSNet")
+                print("x_init shape:", x_init.shape)
+                print("in step 1...")
+                print("x1 shape:", self.orb1(x_init).shape)
+                print("y1 shape:", self.conv_enc1(encoder_outs[0]).shape)
+                print("y2 shape:", self.conv_dec1(decoder_outs[0]).shape)
+                print("in step 2...")
+                print("y1 shape:", self.conv_enc2(self.up_enc1(encoder_outs[1])).shape)
+                print("y2 shape:", self.conv_dec2(self.up_dec1(decoder_outs[1])).shape)
+                print("in step 3...")
+                print("y1 shape:", self.conv_enc3(self.up_enc2(encoder_outs[2])).shape)
+                print("y2 shape:", self.conv_dec3(self.up_dec2(decoder_outs[2])).shape)
+                print("fit to x_init all\n")
+        
+        if self.flag_exc == 1:
+            _, _, x_h , x_w = x_init.shape
+            layer_exc = nn.Upsample(size = (x_h , x_w), mode='bilinear', align_corners=False)
+            
+            x = self.orb1(x_init)
+            x = (layer_exc(x)
+                +layer_exc(self.conv_enc1(encoder_outs[0]))
+                +layer_exc(self.conv_dec1(decoder_outs[0]))
+                )
 
+            x = self.orb2(x)
+            x = (layer_exc(x)
+                +layer_exc(self.conv_enc2(self.up_enc1(encoder_outs[1])))
+                +layer_exc(self.conv_dec2(self.up_dec1(decoder_outs[1])))
+                )
+
+            x = self.orb3(x)
+            x = (layer_exc(x)
+                +layer_exc(self.conv_enc3(self.up_enc2(encoder_outs[2])))
+                +layer_exc(self.conv_dec3(self.up_dec2(decoder_outs[2])))
+                )
+        
         return x
 
 
