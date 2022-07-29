@@ -15,6 +15,22 @@ ex) (45,60) -> "Downscale x2" -> (22,30) -> "Upscale x2" -> (44,60)
 
 사전 upscale 기능을 추가함
 
+
+# 선언
+model = MPRNet(pre_upsample=4)
+criterion = CharbonnierLoss_custom()
+optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999),eps=1e-8, weight_decay=1e-8)
+warmup_epochs = 3
+scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 80-warmup_epochs+40, eta_min=1e-6)
+scheduler = GradualWarmupScheduler(optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
+
+# 사용
+model.cuda()
+restored_outputs = model(LR_input)
+loss = criterion(restored_outputs, HR_answer]
+
+Restore_output = restored_outputs[0]
+scheduler.step()
 """
 
 import torch
@@ -191,26 +207,27 @@ class SkipUpSample(nn.Module):
         self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
                                 nn.Conv2d(in_channels+s_factor, in_channels, 1, stride=1, padding=0, bias=False))
         self.flag_exc = 0
-        
+    
+    
     def forward(self, x, y):
         x = self.up(x)
-        try:
-            x = x + y
-        except:
-            if self.flag_exc == 0:
+        if self.flag_exc == 0:
+            try:
+                x = x + y
+            except:
                 print("\n(exc) in class SkipUpSample")
                 print("x shape:", x.shape)
                 print("y shape:", y.shape)
                 print("operation: x = x + y")
-                print("x resized to y")
+                print("-> x should be resized to y")
                 self.flag_exc = 1
-            
-            _, _, y_h , y_w = y.shape
-            layer_exc = nn.Upsample(size = (y_h , y_w), mode='bilinear', align_corners=False)
-            
-            x = layer_exc(x) + y
+        
+        if self.flag_exc == 1:
+            _, _, h_y , w_y = y.shape
+            x = F.interpolate(x, size=(h_y , w_y), mode='bilinear', align_corners=False) + y
             
         return x
+    
 
 ##########################################################################
 ## Original Resolution Block (ORB)
@@ -279,26 +296,37 @@ class ORSNet(nn.Module):
                 print("fit to x_init all\n")
         
         if self.flag_exc == 1:
-            _, _, x_h , x_w = x_init.shape
-            layer_exc = nn.Upsample(size = (x_h , x_w), mode='bilinear', align_corners=False)
+            _, _, x_h, x_w = x_init.shape
             
             x = self.orb1(x_init)
-            x = (layer_exc(x)
-                +layer_exc(self.conv_enc1(encoder_outs[0]))
-                +layer_exc(self.conv_dec1(decoder_outs[0]))
+            x = (F.interpolate(x
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
+                +F.interpolate(self.conv_enc1(encoder_outs[0])
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
+                +F.interpolate(self.conv_dec1(decoder_outs[0])
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
                 )
-
+            
             x = self.orb2(x)
-            x = (layer_exc(x)
-                +layer_exc(self.conv_enc2(self.up_enc1(encoder_outs[1])))
-                +layer_exc(self.conv_dec2(self.up_dec1(decoder_outs[1])))
+            x = (F.interpolate(x
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
+                +F.interpolate(self.conv_enc2(self.up_enc1(encoder_outs[1]))
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
+                +F.interpolate(self.conv_dec2(self.up_dec1(decoder_outs[1]))
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
                 )
-
+            
             x = self.orb3(x)
-            x = (layer_exc(x)
-                +layer_exc(self.conv_enc3(self.up_enc2(encoder_outs[2])))
-                +layer_exc(self.conv_dec3(self.up_dec2(decoder_outs[2])))
+            x = (F.interpolate(x
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
+                +F.interpolate(self.conv_enc3(self.up_enc2(encoder_outs[2]))
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
+                +F.interpolate(self.conv_dec3(self.up_dec2(decoder_outs[2]))
+                              ,size=(x_h , x_w), mode='bilinear', align_corners=False)
                 )
+            
+            
+        
         
         return x
 
@@ -427,7 +455,7 @@ class MPRNet(nn.Module):
 
         return [stage3_img+x3_img, stage2_img, stage1_img]
         
-#*******************************************************************
+#**********************************************************************************************************
 #loss
 #사용됨
 #사용예시
@@ -504,6 +532,84 @@ class EdgeLoss(nn.Module):
         loss = self.loss(self.laplacian_kernel(x), self.laplacian_kernel(y))
         return loss
 
+
+
+#**********************************************************************************************************
+# optimizer, scheduer
+
+#<<< GradualWarmupScheduler
+
+from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+
+class GradualWarmupScheduler(_LRScheduler):
+    """ Gradually warm-up(increasing) learning rate in optimizer.
+    Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        multiplier: target learning rate = base lr * multiplier if multiplier > 1.0. if multiplier = 1.0, lr starts from 0 and ends up with the base_lr.
+        total_epoch: target learning rate is reached at total_epoch, gradually
+        after_scheduler: after target_epoch, use this scheduler(eg. ReduceLROnPlateau)
+    """
+
+    def __init__(self, optimizer, multiplier, total_epoch, after_scheduler=None):
+        self.multiplier = multiplier
+        if self.multiplier < 1.:
+            raise ValueError('multiplier should be greater thant or equal to 1.')
+        self.total_epoch = total_epoch
+        self.after_scheduler = after_scheduler
+        self.finished = False
+        super(GradualWarmupScheduler, self).__init__(optimizer)
+
+    def get_lr(self):
+        if self.last_epoch > self.total_epoch:
+            if self.after_scheduler:
+                if not self.finished:
+                    self.after_scheduler.base_lrs = [base_lr * self.multiplier for base_lr in self.base_lrs]
+                    self.finished = True
+                return self.after_scheduler.get_lr()
+            return [base_lr * self.multiplier for base_lr in self.base_lrs]
+
+        if self.multiplier == 1.0:
+            return [base_lr * (float(self.last_epoch) / self.total_epoch) for base_lr in self.base_lrs]
+        else:
+            return [base_lr * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.) for base_lr in self.base_lrs]
+
+    def step_ReduceLROnPlateau(self, metrics, epoch=None):
+        if epoch is None:
+            epoch = self.last_epoch + 1
+        self.last_epoch = epoch if epoch != 0 else 1  # ReduceLROnPlateau is called at the end of epoch, whereas others are called at beginning
+        if self.last_epoch <= self.total_epoch:
+            warmup_lr = [base_lr * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.) for base_lr in self.base_lrs]
+            for param_group, lr in zip(self.optimizer.param_groups, warmup_lr):
+                param_group['lr'] = lr
+        else:
+            if epoch is None:
+                self.after_scheduler.step(metrics, None)
+            else:
+                self.after_scheduler.step(metrics, epoch - self.total_epoch)
+
+    def step(self, epoch=None, metrics=None):
+        if type(self.after_scheduler) != ReduceLROnPlateau:
+            if self.finished and self.after_scheduler:
+                if epoch is None:
+                    self.after_scheduler.step(None)
+                else:
+                    self.after_scheduler.step(epoch - self.total_epoch)
+            else:
+                return super(GradualWarmupScheduler, self).step(epoch)
+        else:
+            self.step_ReduceLROnPlateau(metrics, epoch)
+
+#>>> GradualWarmupScheduler
+
+# from official code
+
+# optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999),eps=1e-8, weight_decay=1e-8)
+# warmup_epochs = 3
+# scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 80-warmup_epochs+40, eta_min=1e-6)
+# scheduler = GradualWarmupScheduler(optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
 
 
 print("EoF model_mprnet.py")
