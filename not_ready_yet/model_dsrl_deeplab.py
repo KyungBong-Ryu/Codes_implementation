@@ -1,37 +1,48 @@
-# -*- coding: utf-8 -*-
-#model_deeplab_v3_plus.py
-"""
-https://github.com/yassouali/pytorch-segmentation/blob/master/models/%20deeplabv3_plus_xception.py
-Created on Wed Apr 21 15:16:18 2021
-@author: Administrator
-"""
+# model_dsrl_deeplab.py
+
+############################################################################
+# [intro]
+# Dual Super-Resolution Learning for semantic segmentation -> model & loss
+# Paper 
+# https://ieeexplore.ieee.org/document/9157434
+# https://openaccess.thecvf.com/content_CVPR_2020/papers/Wang_Dual_Super-Resolution_Learning_for_Semantic_Segmentation_CVPR_2020_paper.pdf
+# 
+# Original code has gone... so I made Re-implementation one with below code. (with MIT license)
+# https://github.com/yassouali/pytorch-segmentation/blob/master/models/%20deeplabv3_plus_xception.py #Base code: Deeplab v3 Plus (Xception)
+# 
+# I tried to use codes from below links... But it was not worked for me.
+# So I rewrite some part of codes with these codes below.
+# https://github.com/Dootmaan/DSRL
+# https://github.com/sanje2v/DualSuperResLearningForSemSeg
+# 
+#
+# [how to use]
+# 1. model
+#   
+#   model = DSRL_D3P(num_classes = 11       #SS labels
+#                   ,backbone='xception'    #SS backbone
+#                   ,scale_factor = 4       #SR ScaleFactor
+#                   )
+#   
+#   out_ss, out_sr, out_feature_ss, out_feature_sr = model(input)
+#   
+# 2. loss
+#   criterion = loss_for_dsrl()
+#   
+#   loss = criterion.calc(output
+#                        ,output_sr
+#                        ,fea_seg
+#                        ,fea_sr
+#                        ,ans_label
+#                        ,ans_sr
+#                        ,is_AMP = True      #(bool) is used in Automatic Mixed Precision
+#                        )
+#   
+############################################################################
 
 
-"""
-*사용법*
-
-[기존 내장모델]
-#deeplabv3_resnet101
-#https://pytorch.org/vision/master/generated/torchvision.models.segmentation.deeplabv3_resnet101.html#torchvision.models.segmentation.deeplabv3_resnet101
-model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True
-                                                           ,pretrained_backbone = True
-                                                           )
-
-#class 12개에 맞게 불러온 모델 수정(21 -> 11 (input 부터 void 제거))
-model.classifier[4]     = torch.nn.Conv2d(256, (PR_CH_LABEL), kernel_size=(1, 1), stride=(1, 1))
-model.aux_classifier[4] = torch.nn.Conv2d(256, (PR_CH_LABEL), kernel_size=(1, 1), stride=(1, 1))
-
-model.to(device)
-
-[이 파일의 모델]
-#output 라벨 수 = 11, pretrained = 적용안함 (아직 이 기능 안써봄)
-model = DeepLab_v3_plus(num_classes = 11, pretrained = False)
-print("model info\n", model)
-           
-model.to(device)
-
-
-"""
+# [Model] =====================================================================================================================
+import sys
 
 import os
 import torch
@@ -1186,10 +1197,10 @@ class Decoder(nn.Module):
 '''
 -> Deeplab V3 +
 '''
-#이름 변경함 DeepLab ->DeepLab_v3_plus
+#Modified original code
 class DeepLab_v3_plus(BaseModel):
     def __init__(self, num_classes, in_channels=3, backbone='xception', pretrained=False, 
-                output_stride=16, freeze_bn=False,freeze_backbone=False, **_):
+                output_stride=16, freeze_bn=False,freeze_backbone=False, is_dsrl = False, **_):
                 
         super(DeepLab_v3_plus, self).__init__()
         assert ('xception' or 'resnet' in backbone)
@@ -1202,7 +1213,9 @@ class DeepLab_v3_plus(BaseModel):
 
         self.ASSP = ASSP(in_channels=2048, output_stride=output_stride)
         self.decoder = Decoder(low_level_channels, num_classes)
-
+        
+        self.is_dsrl = is_dsrl
+        
         if freeze_bn: self.freeze_bn()
         if freeze_backbone: 
             set_trainable([self.backbone], False)
@@ -1211,10 +1224,20 @@ class DeepLab_v3_plus(BaseModel):
         H, W = x.size(2), x.size(3)
         x, low_level_features = self.backbone(x)
         x = self.ASSP(x)
-        x = self.decoder(x, low_level_features)
-        x = F.interpolate(x, size=(H, W), mode='bilinear', align_corners=True)
-        return x
-
+        
+        if self.is_dsrl:
+            x_encoder_out = x
+            x = self.decoder(x, low_level_features)
+            x = F.interpolate(x, size=(H, W), mode='bilinear', align_corners=True)
+            return x, x_encoder_out
+        
+        else:
+            x = self.decoder(x, low_level_features)
+            x = F.interpolate(x, size=(H, W), mode='bilinear', align_corners=True)
+            return x
+        
+    
+    
     # Two functions to yield the parameters of the backbone
     # & Decoder / ASSP to use differentiable learning rates
     # FIXME: in xception, we use the parameters from xception and not aligned xception
@@ -1230,4 +1253,293 @@ class DeepLab_v3_plus(BaseModel):
         for module in self.modules():
             if isinstance(module, nn.BatchNorm2d): module.eval()
 
-print("EoF model_deeplab_v3_plus.py")
+
+'''
+-> SR Decoder
+'''
+class Decoder_SR(nn.Module):
+    def __init__(self, backbone, scale_factor):
+        super(Decoder_SR, self).__init__()
+        self.scale_factor = scale_factor
+        
+        #currnetly only xception backbone supported
+        if backbone == 'xception':
+            self.in_channels = 256
+            
+            #feature (in_w, in_h) = original (w//16,h//16)
+            
+            self.up_1 = nn.Sequential(nn.Dropout(p=0.2)
+                                     ,nn.ConvTranspose2d(in_channels=self.in_channels        # 256
+                                                        ,out_channels=self.in_channels // 2  # 128
+                                                        ,kernel_size=2
+                                                        ,stride=2
+                                                        ,padding=0
+                                                        ,bias=False
+                                                        ) # (in_w, in_h) -> (2*in_w, 2*in_h)
+                                     ,nn.BatchNorm2d(num_features=self.in_channels // 2)     # 64
+                                     ,nn.ReLU()
+                                     
+                                     ,nn.Dropout(p=0.2)
+                                     ,nn.ConvTranspose2d(in_channels=self.in_channels  // 2  # 128
+                                                        ,out_channels=self.in_channels // 4  # 64
+                                                        ,kernel_size=2
+                                                        ,stride=2
+                                                        ,padding=0
+                                                        ,bias=False
+                                                        ) # (2*in_w, 2*in_h) -> (4*in_w, 4*in_h)
+                                     ,nn.BatchNorm2d(num_features=self.in_channels // 4)     # 64
+                                     ,nn.ReLU()
+                                     
+                                     ,nn.Dropout(p=0.2)
+                                     ,nn.ConvTranspose2d(in_channels=self.in_channels  // 4  # 64
+                                                        ,out_channels=self.in_channels // 8  # 32
+                                                        ,kernel_size=2
+                                                        ,stride=2
+                                                        ,padding=0
+                                                        ,bias=False
+                                                        ) # (4*in_w, 4*in_h) -> (8*in_w, 8*in_h)
+                                     ,nn.BatchNorm2d(num_features=self.in_channels // 8)     # 32
+                                     ,nn.ReLU()
+                                     
+                                     ,nn.Dropout(p=0.2)
+                                     ,nn.ConvTranspose2d(in_channels=self.in_channels  // 8  # 32
+                                                        ,out_channels=self.in_channels // 16 # 16
+                                                        ,kernel_size=2
+                                                        ,stride=2
+                                                        ,padding=0
+                                                        ,bias=False
+                                                        ) # (8*in_w, 8*in_h) -> (16*in_w, 16*in_h)
+                                     ,nn.BatchNorm2d(num_features=self.in_channels // 16)    # 16
+                                     ,nn.ReLU()
+                                     )
+            
+            
+            
+            self.sub_pixel_conv_layer = nn.Sequential(nn.Conv2d(in_channels = self.in_channels//16 
+                                                               ,out_channels = 3 * self.scale_factor * self.scale_factor
+                                                               ,kernel_size = 3, stride = 1, padding = 1
+                                                               )
+                                                     ,nn.PixelShuffle(self.scale_factor)
+                                                     )
+        
+    def forward(self, x, input_size):
+        
+        #tuple (Height, Width), initial image input size
+        self.input_size = input_size
+        
+        #@@@ input_size 정보로 텐서 bininear inpterpolation 시행 후 sub_pixel_conv_layer으로 up sample 시행
+        #@@@ -> 이러면 실시간 크기 사용 가능
+        x = self.up_1(x)
+        x =  F.interpolate(x, size=self.input_size, mode='bilinear', align_corners=True)
+        x = self.sub_pixel_conv_layer(x)
+        
+        return x
+
+
+'''
+-> Deeplab v3 Plus (DSRL version)
+'''
+#Pretrained function cannot be used now
+class DSRL_D3P(nn.Module):
+    def __init__(self, num_classes, in_channels=3, backbone='xception'
+                ,output_stride=16, freeze_bn=False,freeze_backbone=False, scale_factor = 4, **_):
+        
+        super(DSRL_D3P, self).__init__()
+        
+        self.num_classes = num_classes
+        self.backbone = backbone
+        self.pretrained = False
+        self.is_dsrl = True
+        self.scale_factor = scale_factor
+        
+        #DeepLab v3 Plus (Encoder + Decoder, ScaleFactor = 1)
+        self.model_d3p = DeepLab_v3_plus(num_classes = self.num_classes, backbone = self.backbone
+                                        ,pretrained = self.pretrained, is_dsrl = self.is_dsrl)
+        
+        self.decoder_sr = Decoder_SR(backbone = self.backbone, scale_factor = self.scale_factor)
+        
+        
+        # Feature Extractor for SS & SR (Subsample Rate = 8)
+        self.last_layer_feature_ss = nn.Sequential(nn.Dropout(p=0.2)
+                                                  ,nn.Conv2d(in_channels=self.num_classes
+                                                             ,out_channels=1
+                                                             ,kernel_size=1
+                                                             ,stride=1
+                                                             ,padding=0
+                                                             ,bias=False
+                                                             )                       # layer: 1x1 conv
+                                                   ,nn.BatchNorm2d(num_features=1)   # layer: Batch Norm
+                                                   ,nn.ReLU()                        # layer: ReLU
+                                                   ,nn.AvgPool2d(8)                  # layer: subsample -> 1/8
+                                                  )
+        
+        self.last_layer_feature_sr = nn.Sequential(nn.Dropout(p=0.2)
+                                                  ,nn.Conv2d(in_channels=3
+                                                             ,out_channels=1
+                                                             ,kernel_size=1
+                                                             ,stride=1
+                                                             ,padding=0
+                                                             ,bias=False
+                                                             )                       # layer: 1x1 conv
+                                                   ,nn.BatchNorm2d(num_features=1)   # layer: Batch Norm
+                                                   ,nn.ReLU()                        # layer: ReLU
+                                                   ,nn.AvgPool2d(8)                  # layer: subsample -> 1/8
+                                                  )
+        
+        # Last layer for SS out
+        if self.scale_factor == 2:
+            self.last_layer_ss = nn.Sequential(nn.Dropout(p=0.2)
+                                              ,nn.ConvTranspose2d(in_channels=self.num_classes
+                                                                 ,out_channels=self.num_classes
+                                                                 ,kernel_size=2
+                                                                 ,stride=2
+                                                                 ,padding=0
+                                                                 ,bias=False
+                                                                 ) # (in_w, in_h) -> (2*in_w, 2*in_h)
+                                              ,nn.BatchNorm2d(num_features=self.num_classes)
+                                              ,nn.ReLU()
+                                              )
+        else: # self.scale_factor == 4
+            self.last_layer_ss = nn.Sequential(nn.Dropout(p=0.2)
+                                              ,nn.ConvTranspose2d(in_channels=self.num_classes
+                                                                 ,out_channels=self.num_classes
+                                                                 ,kernel_size=2
+                                                                 ,stride=2
+                                                                 ,padding=0
+                                                                 ,bias=False
+                                                                 ) # (in_w, in_h) -> (2*in_w, 2*in_h)
+                                              ,nn.BatchNorm2d(num_features=self.num_classes)
+                                              ,nn.ReLU()
+                                              
+                                              ,nn.Dropout(p=0.2)
+                                              ,nn.ConvTranspose2d(in_channels=self.num_classes
+                                                                 ,out_channels=self.num_classes
+                                                                 ,kernel_size=2
+                                                                 ,stride=2
+                                                                 ,padding=0
+                                                                 ,bias=False
+                                                                 ) # (2*in_w, 2*in_h) -> (4*in_w, 4*in_h)
+                                              ,nn.BatchNorm2d(num_features=self.num_classes)
+                                              ,nn.ReLU()
+                                              )
+        
+        
+        
+        
+        
+    def forward(self, x):
+        #initial input = (in_b, in_c, in_w, in_h) -> [2, 3, 120, 90]
+        H, W = x.size(2), x.size(3)
+        
+        x_d3p, x_encoder_out = self.model_d3p(x)
+        
+        #print("x_encoder_out", x_encoder_out.size())
+        
+        #-------
+        # x_encoder_out size() info
+        #
+        # xception -> (batch, 256, height, width) -> [2, 256, 8, 6]
+        #-------
+        
+        #Seme Segm output: (in_b, label_channels, scale_factor * in_w, scale_factor * in_h)
+        out_ss = self.last_layer_ss(x_d3p) # (in_w, in_h) -> (scale_factor*in_w, scale_factor*in_h)
+        
+        #Seme Segm feature map output: (in_b, 1, in_w // Subsample Rate, in_h // Subsample Rate)
+        out_feature_ss = self.last_layer_feature_ss(out_ss) # -> AvgPool2D (scale_factor*in_w //8, scale_factor*in_h //8)
+        
+        
+        out_sr = self.decoder_sr(x_encoder_out, (H, W))
+        out_feature_sr = self.last_layer_feature_sr(out_sr)
+        return out_ss, out_sr, out_feature_ss, out_feature_sr
+
+
+# [Loss] ======================================================================================================================
+
+
+
+
+class loss_for_dsrl():
+    def __init__(self, weight_loss_ce = 1.0, weight_loss_mse = 0.1, weight_loss_fa = 1.0):
+        print("\ninit class loss_for_dsrl")
+        
+        self.weight_loss_ce = weight_loss_ce
+        self.loss_ce = nn.CrossEntropyLoss()
+        print("weight_loss_ce:", self.weight_loss_ce)
+        
+        self.weight_loss_mse = weight_loss_mse
+        self.loss_mse = nn.MSELoss()
+        print("weight_loss_mse:", self.weight_loss_mse)
+        
+        self.weight_loss_fa = weight_loss_fa
+        
+        print("weight_loss_fa:", self.weight_loss_fa)
+        
+        print("use .calc to calculate loss")
+        
+    
+    
+    def FALoss(self, in_ft_1, in_ft_2):
+        in_b_1, in_c_1, in_h_1, in_w_1 = in_ft_1.size()
+        in_b_2, in_c_2, in_h_2, in_w_2 = in_ft_2.size()
+        if in_c_1 != 1 or in_c_2 != 1:
+            print("(exc) feature map should be [b, 1, h, w] shape")
+            print("feature map 1 shape:", in_b_1, in_c_1, in_h_1, in_w_1)
+            print("feature map 2 shape:", in_b_2, in_c_2, in_h_2, in_w_2)
+            sys.exit(9)
+        
+        # SubSample
+        # sub_sample_rate = 8
+        # ft_1 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_1)
+        # ft_2 = torch.nn.AvgPool2d(sub_sample_rate)(in_ft_2)
+        # -> subsampled in model
+        ft_1 = in_ft_1
+        ft_2 = in_ft_2
+        #print("(loss_for_dsrl FALoss) subsampled featuremap size", ft_1.size(), ft_2.size())
+        
+        # L2 norm
+        ft_1_norm = torch.linalg.norm(ft_1, dim = (2,3), ord = 2, keepdims = True)
+        ft_2_norm = torch.linalg.norm(ft_2, dim = (2,3), ord = 2, keepdims = True)
+        
+        ft_1_div = torch.div(ft_1, ft_1_norm)
+        ft_2_div = torch.div(ft_2, ft_2_norm)
+        
+        # transposed ([b,c,h,w] -> [b,c,w,h])
+        ft_1_tran = torch.transpose(ft_1_div, dim0 = 2, dim1 = 3)
+        ft_2_tran = torch.transpose(ft_2_div, dim0 = 2, dim1 = 3)
+        
+        # Similarity Matrix (3D shape [b*c,h,w], sm_1 & sm_2)
+        # 4D -> 3D for bmm ([b,c,h,w] -> [b*c,h,w])
+        in_b_1, in_c_1, in_h_1, in_w_1 = ft_1_tran.size()
+        in_b_2, in_c_2, in_h_2, in_w_2 = ft_1_div.size()
+        sm_1 = torch.bmm(ft_1_tran.view(-1, in_h_1, in_w_1), ft_1_div.view(-1, in_h_2, in_w_2))
+        
+        in_b_1, in_c_1, in_h_1, in_w_1 = ft_2_tran.size()
+        in_b_2, in_c_2, in_h_2, in_w_2 = ft_2_div.size()
+        sm_2 = torch.bmm(ft_2_tran.view(-1, in_h_1, in_w_1), ft_2_div.view(-1, in_h_2, in_w_2))
+        
+        in_bc, in_h, in_w = sm_1.size()
+        
+        loss_l1 = torch.nn.L1Loss()
+        
+        return loss_l1(sm_1, sm_2)
+        
+    
+    def calc(self, hypo_label, hypo_sr, feature_label, feature_sr, ans_label, ans_sr, is_AMP = True):
+        if is_AMP: #is this loss used with Automatic Mixed Precision?
+            return (self.loss_ce(hypo_label, ans_label)    * self.weight_loss_ce
+                   +self.loss_mse(hypo_sr, ans_sr)         * self.weight_loss_mse
+                   +self.FALoss(feature_label.to(torch.float32), feature_sr.to(torch.float32)) * self.weight_loss_fa
+                   )
+        else:
+            return (self.loss_ce(hypo_label, ans_label)    * self.weight_loss_ce
+                   +self.loss_mse(hypo_sr, ans_sr)         * self.weight_loss_mse
+                   +self.FALoss(feature_label, feature_sr) * self.weight_loss_fa
+                   )
+
+
+
+
+
+
+
+print("EoF model_dsrl_deeplab.py")
