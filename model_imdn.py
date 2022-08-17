@@ -1,3 +1,4 @@
+# model_imdn.py
 #############################################################
 #
 #   model: IMDN (from paper "Lightweight Image Super-Resolution with Information Multi-distillation Network")
@@ -393,3 +394,6 @@ class IMDN_RTE(nn.Module):
 
 # architecture.py
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-#
+
+
+print("EoF: model_imdn.py")
