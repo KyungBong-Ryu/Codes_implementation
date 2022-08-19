@@ -27,12 +27,6 @@ from https://github.com/swz30/MPRNet/blob/main/Denoising/train.py
 
 MPRNet (Denoising) model & loss
 
-# 3. model_esrgan.py
-from https://github.com/Lornatang/ESRGAN-PyTorch/blob/main/model.py
+# Other models
 
-ESRGAN - ready for RRDBNet only yet... now working on
-
-# 4. model_dsrl.py -> Not working well...
-from https://github.com/Dootmaan/DSRL
-
-Dual Super-Resolution Learning for semantic segmentation
+Please check py files
