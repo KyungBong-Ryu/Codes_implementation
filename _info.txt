@@ -11,3 +11,13 @@ BSRN 추가
 
 v 1.3
 RFDN 추가
+
+v 1.3.1
+BSRN ESRT IMDN RFDN 주석 수정
+
+v 1.3.2
+DeepLab v3 Plus 주석 수정 & Learning Rate Scheduler 추가
+
+v 1.4
+DeepLab v3 Plus -  Learning Rate Scheduler 수정 (PolyLR)
+DABNet 추가

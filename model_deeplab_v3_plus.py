@@ -1,10 +1,43 @@
-# -*- coding: utf-8 -*-
-#model_deeplab_v3_plus.py
-"""
-https://github.com/yassouali/pytorch-segmentation/blob/master/models/%20deeplabv3_plus_xception.py
-Created on Wed Apr 21 15:16:18 2021
-@author: Administrator
-"""
+# model_deeplab_v3_plus.py
+
+#############################################################
+#
+#   model: DeepLab_v3_plus (from paper "Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation")
+#
+#   paper link: https://arxiv.org/pdf/1802.02611.pdf
+#
+#   paper info: Liang-Chieh Chen, Yukun Zhu, George Papandreou, Florian Schroff, Hartwig Adam
+#               Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation
+#               Computer Vision – ECCV 2018
+#
+#   github link (tensorflow): https://github.com/tensorflow/models/tree/master/research/deeplab
+#   license info: Apache License Version 2.0
+#
+#   tensorflow -> pytorch: https://github.com/yassouali/pytorch-segmentation/blob/master/models/%20deeplabv3_plus_xception.py
+#   license info: MIT license
+#
+#
+#   How to Use
+#   < import >
+#   from model_deeplab_v3_plus import DeepLab_v3_plus, PolyLR
+#
+#
+#   < init >
+#   model = DeepLab_v3_plus(num_classes = HP_CHANNEL_HYPO, pretrained = False)
+#   criterion = torch.nn.CrossEntropyLoss()
+#   optimizer = torch.optim.SGD(model.parameters()
+#                              ,lr=0.007
+#                              ,momentum=0.9
+#                              ,weight_decay=0.00004
+#                              )
+#   scheduler = PolyLR(optimizer, power=0.9, max_epoch=1000)
+#
+#   < train >
+#   tensor_label_predicted = model(tensor_image)
+#   tensor_label_predicted_softmax = F.softmax(tensor_label_predicted, dim = 1)
+#   loss = criterion(tensor_label_predicted_softmax, tensor_label_answer)
+#############################################################
+
 
 
 """
@@ -54,6 +87,10 @@ import torch
 import math
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import _LRScheduler
+import types
+import warnings
+
 from torchvision import models
 import torch.utils.model_zoo as model_zoo
 #from utils.helpers import initialize_weights,set_trainable
@@ -1230,4 +1267,61 @@ class DeepLab_v3_plus(BaseModel):
         for module in self.modules():
             if isinstance(module, nn.BatchNorm2d): module.eval()
 
-print("EoF model_deeplab_v3_plus.py")
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-#
+# Poly Scheduler
+
+class PolyLR(_LRScheduler):
+    # modified version of LambdaLR from https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#LambdaLR
+    def __init__(self, optimizer, last_epoch=-1, verbose=False, power=0.9, max_epoch=5000):
+        self.optimizer = optimizer
+        lr_lambda = lambda x : (1 - x/max_epoch)**power
+        if not isinstance(lr_lambda, list) and not isinstance(lr_lambda, tuple):
+            self.lr_lambdas = [lr_lambda] * len(optimizer.param_groups)
+        else:
+            if len(lr_lambda) != len(optimizer.param_groups):
+                raise ValueError("Expected {} lr_lambdas, but got {}".format(
+                    len(optimizer.param_groups), len(lr_lambda)))
+            self.lr_lambdas = list(lr_lambda)
+        super(PolyLR, self).__init__(optimizer, last_epoch, verbose)
+
+    def state_dict(self):
+        state_dict = {key: value for key, value in self.__dict__.items() if key not in ('optimizer', 'lr_lambdas')}
+        state_dict['lr_lambdas'] = [None] * len(self.lr_lambdas)
+
+        for idx, fn in enumerate(self.lr_lambdas):
+            if not isinstance(fn, types.FunctionType):
+                state_dict['lr_lambdas'][idx] = fn.__dict__.copy()
+
+        return state_dict
+
+
+    def load_state_dict(self, state_dict):
+        lr_lambdas = state_dict.pop('lr_lambdas')
+        self.__dict__.update(state_dict)
+        # Restore state_dict keys in order to prevent side effects
+        # https://github.com/pytorch/pytorch/issues/32756
+        state_dict['lr_lambdas'] = lr_lambdas
+
+        for idx, fn in enumerate(lr_lambdas):
+            if fn is not None:
+                self.lr_lambdas[idx].__dict__.update(fn)
+
+    def get_lr(self):
+        out_lr_raw = [base_lr * lmbda(self.last_epoch) for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs)]
+        out_lr = out_lr_raw[0]
+        
+        try:    # complex 클래스 발생 문제 해결목적
+            if out_lr < 0.0:
+                warnings.warn("(PolyLR) lr fixed to 0.0")
+                out_lr = 0.0
+        except:
+            warnings.warn("(PolyLR) lr generated as complex value")
+            warnings.warn("(PolyLR) lr fixed to 0.0")
+            out_lr = 0.0
+        
+        return [out_lr]
+
+#=== End of PolyLR
+
+
+print("EoF: model_deeplab_v3_plus.py")

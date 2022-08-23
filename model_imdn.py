@@ -2,12 +2,17 @@
 #############################################################
 #
 #   model: IMDN (from paper "Lightweight Image Super-Resolution with Information Multi-distillation Network")
+#
 #   paper link: https://arxiv.org/pdf/1909.11856v1.pdf
+#
 #   paper info: Zheng Hui, Xinbo Gao, Yunchu Yang, and Xiumei Wang.
 #               Lightweight image super-resolution with information multi-distillation network.
 #               In ACMMM, pages 2024–2032, 2019.
+#
 #   github link: https://github.com/Zheng222/IMDN
+#
 #   license info: not found... please let me know
+#
 #
 #   How to Use
 #   < import model >
@@ -15,11 +20,11 @@
 #
 #   < init >
 #   model = IMDN(upscale=4)
-#   loss  = torch.nn.L1Loss()
+#   criterion  = torch.nn.L1Loss()
 #
 #   < train >
 #   tensor_sr = model(tensor_lr)
-#   loss = loss(tensor_sr, tensor_hr)
+#   loss = criterion(tensor_sr, tensor_hr)
 #############################################################
 
 

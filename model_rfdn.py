@@ -2,12 +2,17 @@
 #############################################################
 #
 #   model: RFDN (from paper "Residual Feature Distillation Network for Lightweight Image Super-Resolution")
+#
 #   paper link: https://arxiv.org/abs/2009.11551
+#
 #   paper info: Jie Liu, Jie Tang, and Gangshan Wu. 
 #               Residual Feature Distillation Network for Lightweight Image Super-Resolution.
 #               In European Conference on Computer Vision, pages 41–55. Springer, 2020.
+#
 #   github link: https://github.com/njulj/RFDN
+#
 #   license info:  MIT license
+#
 #
 #   How to Use
 #   < import model >
@@ -15,12 +20,12 @@
 #
 #   < init >
 #   model = RFDN(upscale=4)
-#   loss  = torch.nn.L1Loss()   (train from scratch)
-#   loss  = torch.nn.MSELoss()  (fine tuning -> check paper)
+#   criterion  = torch.nn.L1Loss()   (train from scratch)
+#   criterion  = torch.nn.MSELoss()  (fine tuning -> check paper)
 #
 #   < train >
 #   tensor_sr = model(tensor_lr)
-#   loss = loss(tensor_sr, tensor_hr)
+#   loss = criterion(tensor_sr, tensor_hr)
 #############################################################
 
 import torch

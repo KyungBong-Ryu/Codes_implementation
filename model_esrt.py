@@ -1,5 +1,37 @@
 # model_esrt.py 
-# v 0.1
+
+
+
+#########################################################################################
+#
+#   model: ESRT (from paper "Transformer for Single Image Super-Resolution")
+#
+#   paper link: https://openaccess.thecvf.com/content/CVPR2022W/NTIRE/html/Lu_Transformer_for_Single_Image_Super-Resolution_CVPRW_2022_paper.html
+#               https://arxiv.org/abs/2108.11084
+#               
+#   paper info: Zhisheng Lu, Juncheng Li, Hong Liu, Chaoyan Huang, Linlin Zhang, Tieyong Zeng
+#               Transformer for Single Image Super-Resolution
+#               Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops, 2022, pp. 457-466
+#
+#   github link: https://github.com/luissen/ESRT
+#
+#   license info: MIT license
+#
+#
+#   How to Use
+#   < import model >
+#   from model_esrt import ESRT
+#
+#   < init >
+#   model = ESRT(upscale=4)
+#   criterion = torch.nn.L1Loss()
+#
+#   < train >
+#   tensor_sr = model(tensor_lr)
+#   loss = criterion(tensor_sr, tensor_hr)
+#
+#########################################################################################
+
 import os
 import math
 import numpy as np
@@ -9,29 +41,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-
-
-#########################################################################################
-'''
-Original Paper: https://openaccess.thecvf.com/content/CVPR2022W/NTIRE/html/Lu_Transformer_for_Single_Image_Super-Resolution_CVPRW_2022_paper.html
-                https://arxiv.org/abs/2108.11084
-                https://arxiv.org/pdf/2108.11084.pdf
-
-Original Code:  https://github.com/luissen/ESRT
-
-How to Use
-
-1.init (for upscale factor 4)
-    model = ESRT(upscale=4)
-    criterion = torch.nn.L1Loss()
-    
-2.train-val-test
-    sr_tensor = model(lr_tensor)
-    loss = criterion(sr_tensor, hr_tensor)
-
-'''
-#########################################################################################
-
 
 
 def normalize(x):

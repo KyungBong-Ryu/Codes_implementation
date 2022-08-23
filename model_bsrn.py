@@ -2,12 +2,17 @@
 #############################################################
 #
 #   model: BSRN (from paper "Blueprint Separable Residual Network for Efficient Image Super-Resolution")
+#
 #   paper link: https://openaccess.thecvf.com/content/CVPR2022W/NTIRE/papers/Li_Blueprint_Separable_Residual_Network_for_Efficient_Image_Super-Resolution_CVPRW_2022_paper.pdf
+#
 #   paper info: Li, Zheyuan and Liu, Yingqi and Chen, Xiangyu and Cai, Haoming and Gu, Jinjin and Qiao, Yu and Dong, Chao.
 #               Blueprint Separable Residual Network for Efficient Image Super-Resolution
 #               In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops, pages 833-843, 2022 June.
+#
 #   github link: https://github.com/xiaom233/BSRN
+#
 #   license info: MIT license 
+#
 #
 #   How to Use
 #   < import model >
@@ -15,12 +20,11 @@
 #   
 #   < init >
 #   model = BSRN(upscale=4)
-#   loss  = torch.nn.L1Loss()
+#   criterion  = torch.nn.L1Loss()
 #   
 #   < train >
 #   tensor_sr = model(tensor_lr)
-#   loss = loss(tensor_sr, tensor_hr)
-#   
+#   loss = criterion(tensor_sr, tensor_hr)
 #   
 #############################################################
 
