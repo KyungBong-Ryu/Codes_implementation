@@ -58,12 +58,12 @@ model.to(device)
 
 [이 파일의 모델]
 #output 라벨 수 = 11, pretrained = 적용안함 (아직 이 기능 안써봄)
-model = DeepLab_v3_plus(num_classes = 11, pretrained = False)
+model = DeepLab_v3_plus(num_classes = 11, in_channels=3, pretrained = False)
 print("model info\n", model)
            
 model.to(device)
 
-
+xception65 사용시, 입력채널 수 3 이외 값으로 변경 가능
 """
 
 import os
@@ -726,7 +726,7 @@ class Xception(torch.nn.Module):
     block instantiations that produce Xception of various depths.
     """
     
-    def __init__(self, blocks, num_classes=None, global_pool=True, 
+    def __init__(self, blocks, in_channels=3, num_classes=None, global_pool=True, 
                  keep_prob=0.5, output_stride=None, scope=None):
         """Constructor.
         
@@ -759,7 +759,7 @@ class Xception(torch.nn.Module):
                 raise ValueError('The output_stride must be a multiple of 2.')
             output_stride /= 2
         # Root block function operated on inputs
-        layers += [Conv2dSame(3, 32, 3, stride=2),
+        layers += [Conv2dSame(in_channels, 32, 3, stride=2),
                    Conv2dSame(32, 64, 3, stride=1)]
         
         # Extract features for entry_flow, middle_flow, and exit_flow
@@ -939,7 +939,8 @@ def xception_41(num_classes=None,
     return xception
 
 
-def Xception65(num_classes=None,
+def Xception65(in_channels=3,
+               num_classes=None,
                global_pool=True,
                keep_prob=0.5,
                output_stride=None,
@@ -998,12 +999,14 @@ def Xception65(num_classes=None,
                        stride=1,
                        unit_rate_list=multi_grid),
     ]
-    return Xception(blocks=blocks, num_classes=num_classes,
+    return Xception(in_channels=in_channels,
+                    blocks=blocks, num_classes=num_classes,
                     global_pool=global_pool, keep_prob=keep_prob,
                     output_stride=output_stride, scope=scope)
 
 
-def xception_65(num_classes=None,
+def xception_65(in_channels=3,
+                num_classes=None,
                 global_pool=False,
                 keep_prob=0.5,
                 output_stride=None,
@@ -1013,7 +1016,8 @@ def xception_65(num_classes=None,
                 pretrained=True,
                 checkpoint_path='./pretrained/xception_65.pth'):
     """Xception-65 model."""
-    xception = Xception65(num_classes=num_classes, global_pool=global_pool, 
+    xception = Xception65(in_channels=in_channels,
+                          num_classes=num_classes, global_pool=global_pool, 
                           keep_prob=keep_prob, output_stride=output_stride,
                           scope=scope)
     if pretrained:
@@ -1234,7 +1238,7 @@ class DeepLab_v3_plus(BaseModel):
             self.backbone = ResNet(in_channels=in_channels, output_stride=output_stride, pretrained=pretrained)
             low_level_channels = 256
         else:
-            self.backbone = xception_65(output_stride=output_stride, pretrained=pretrained,global_pool=False,checkpoint_path='./pretrained/xception_65.pth')
+            self.backbone = xception_65(in_channels=in_channels, output_stride=output_stride, pretrained=pretrained,global_pool=False,checkpoint_path='./pretrained/xception_65.pth')
             low_level_channels = 128
 
         self.ASSP = ASSP(in_channels=2048, output_stride=output_stride)
@@ -1268,60 +1272,5 @@ class DeepLab_v3_plus(BaseModel):
             if isinstance(module, nn.BatchNorm2d): module.eval()
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-#
-# Poly Scheduler
-
-class PolyLR(_LRScheduler):
-    # modified version of LambdaLR from https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#LambdaLR
-    def __init__(self, optimizer, last_epoch=-1, verbose=False, power=0.9, max_epoch=5000):
-        self.optimizer = optimizer
-        lr_lambda = lambda x : (1 - x/max_epoch)**power
-        if not isinstance(lr_lambda, list) and not isinstance(lr_lambda, tuple):
-            self.lr_lambdas = [lr_lambda] * len(optimizer.param_groups)
-        else:
-            if len(lr_lambda) != len(optimizer.param_groups):
-                raise ValueError("Expected {} lr_lambdas, but got {}".format(
-                    len(optimizer.param_groups), len(lr_lambda)))
-            self.lr_lambdas = list(lr_lambda)
-        super(PolyLR, self).__init__(optimizer, last_epoch, verbose)
-
-    def state_dict(self):
-        state_dict = {key: value for key, value in self.__dict__.items() if key not in ('optimizer', 'lr_lambdas')}
-        state_dict['lr_lambdas'] = [None] * len(self.lr_lambdas)
-
-        for idx, fn in enumerate(self.lr_lambdas):
-            if not isinstance(fn, types.FunctionType):
-                state_dict['lr_lambdas'][idx] = fn.__dict__.copy()
-
-        return state_dict
-
-
-    def load_state_dict(self, state_dict):
-        lr_lambdas = state_dict.pop('lr_lambdas')
-        self.__dict__.update(state_dict)
-        # Restore state_dict keys in order to prevent side effects
-        # https://github.com/pytorch/pytorch/issues/32756
-        state_dict['lr_lambdas'] = lr_lambdas
-
-        for idx, fn in enumerate(lr_lambdas):
-            if fn is not None:
-                self.lr_lambdas[idx].__dict__.update(fn)
-
-    def get_lr(self):
-        out_lr_raw = [base_lr * lmbda(self.last_epoch) for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs)]
-        out_lr = out_lr_raw[0]
-        
-        try:    # complex 클래스 발생 문제 해결목적
-            if out_lr < 0.0:
-                warnings.warn("(PolyLR) lr fixed to 0.0")
-                out_lr = 0.0
-        except:
-            warnings.warn("(PolyLR) lr generated as complex value")
-            warnings.warn("(PolyLR) lr fixed to 0.0")
-            out_lr = 0.0
-        
-        return [out_lr]
-
-#=== End of PolyLR
-
 
 print("EoF: model_deeplab_v3_plus.py")
