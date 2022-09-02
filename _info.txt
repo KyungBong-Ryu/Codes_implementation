@@ -25,5 +25,8 @@ DABNet 추가
 v 1.5
 CGNet 추가
 
-v1.5.1
+v 1.5.1
 DeepLab v3 Plus - xception 옵션으로도 n channel input 사용 가능하게 수정
+
+v 1.6
+FPENet 추가
