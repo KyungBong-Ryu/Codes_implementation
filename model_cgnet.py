@@ -1,7 +1,7 @@
 # model_cgnet.py
 #############################################################
 #   
-#   model: CGBNet (from paper "CGNet: A Light-weight Context Guided Network for Semantic Segmentation")
+#   model: CGNet (from paper "CGNet: A Light-weight Context Guided Network for Semantic Segmentation")
 #
 #   paper link: https://ieeexplore.ieee.org/document/9292449
 #               https://arxiv.org/pdf/1811.08201.pdf
