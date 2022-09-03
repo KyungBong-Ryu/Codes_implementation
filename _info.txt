@@ -30,3 +30,7 @@ DeepLab v3 Plus - xception 옵션으로도 n channel input 사용 가능하게 �
 
 v 1.6
 FPENet 추가
+
+v 1.6.1
+CGNet에서...
+warning 반영하여 F.upsample 을 F.interpolate로 교체
