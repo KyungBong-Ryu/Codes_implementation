@@ -368,6 +368,8 @@ class Context_Guided_Network(nn.Module):
             input: Receives the input RGB image
             return: segmentation map
         """
+        _, _, in_h, in_w = input.shape
+        
         # stage 1
         output0 = self.level1_0(input)
         output0 = self.level1_1(output0)
@@ -401,8 +403,10 @@ class Context_Guided_Network(nn.Module):
         classifier = self.classifier(output2_cat)
 
         # upsample segmenation map ---> the input image size
-        out = F.upsample(classifier, input.size()[2:], mode='bilinear',align_corners = False)   #Upsample score map, factor=8
+        #out = F.upsample(classifier, input.size()[2:], mode='bilinear',align_corners = False)   #Upsample score map, factor=8]
+        out = F.interpolate(classifier, size=(in_h, in_w), mode='bilinear', align_corners=False)
         return out
+
 
 
 print("EoF: model_cgnet.py")
