@@ -382,7 +382,7 @@ class IMDN_RTE(nn.Module):
 
         output = self.upsampler(out_lr)
 
-        return 
+        return output
 
 
 
