@@ -34,3 +34,15 @@ FPENet 추가
 v 1.6.1
 CGNet에서...
 warning 반영하여 F.upsample 을 F.interpolate로 교체
+
+v 1.6.2
+FLOPs 측정기능 추가 (FLOPs.py)
+model_imdn 에서...
+IMDN_RTE class typo 수정 (IMDN class에 영향 없음)
+model_bsrn 에서...
+CosineAnnealingRestartLR scheduler 추가 (BSRN class에 영향 없음)
+
+
+(작성중)
+
+
