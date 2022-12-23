@@ -34,3 +34,13 @@ FPENet 추가
 v 1.6.1
 CGNet에서...
 warning 반영하여 F.upsample 을 F.interpolate로 교체
+
+v 1.6.2
+FLOPs 측정기능 추가
+
+(작성중)
+model_imdn 에서...
+IMDN_RTE typo 수정
+
+model_bsrn 에서...
+scheduler 추가
