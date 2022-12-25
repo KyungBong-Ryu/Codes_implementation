@@ -42,6 +42,9 @@ IMDN_RTE class typo 수정 (IMDN class에 영향 없음)
 model_bsrn 에서...
 CosineAnnealingRestartLR scheduler 추가 (BSRN class에 영향 없음)
 
+v 1.7
+PAN 추가 (model_pan.py, EISR network.)
+
 
 (작성중)
 
