@@ -45,7 +45,8 @@ CosineAnnealingRestartLR scheduler 추가 (BSRN class에 영향 없음)
 v 1.7
 PAN 추가 (model_pan.py, EISR network.)
 
-
-(작성중)
+v 2.0
+LAPAR_A 추가
+하위 폴더 (semantic_segmentation, super_resolution) 생성 및 분류 시행
 
 
