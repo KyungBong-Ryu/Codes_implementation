@@ -49,4 +49,5 @@ v 2.0
 LAPAR_A 추가
 하위 폴더 (semantic_segmentation, super_resolution) 생성 및 분류 시행
 
-
+v 2.0.1
+LAPAR_A - Charbonnier Loss 추가
