@@ -19,7 +19,10 @@
 # Official x2, x4 pretrained weight ("https://drive.google.com/drive/folders/1c-KUEPJl7pHs9btqHYoUJkcMPKViObgJ?usp=sharing") can be loaded with this code.
 #
 # < How to Use >
-# from DLCs.model_lapar_a import Network as LAPAR_A
+# from model_lapar_a import Network as LAPAR_A
+# from model_lapar_a import CharbonnierLoss
+# from model_lapar_a import CosineAnnealingLR_warmup
+#
 # model = LAPAR_A(scale=4)
 # 
 # optimizer = optim.Adam(model.parameters()
@@ -37,7 +40,8 @@
 #                                     ,t_period = [200000, 400000, 600000]    # total train iter = 600 k
 #                                     )
 # 
-# loss = torch.nn.L1Loss(reduction='mean')
+# loss = CharbonnierLoss()                  # paper
+# loss = torch.nn.L1Loss(reduction='mean')  # code
 # 
 # 
 # 
@@ -45,8 +49,11 @@
 #
 # 
 
-import math
 import os
+import sys
+import numpy as np
+import math
+
 import pickle
 from easydict import EasyDict as edict
 
@@ -57,6 +64,8 @@ import torch.nn.init as init
 from torch.nn.parameter import Parameter
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler
+
+
 #<<<=============================================================================================== config.py (x4)
 # https://github.com/dvlab-research/Simple-SR/blob/master/exps/LAPAR_A_x4/config.py
 
@@ -389,6 +398,29 @@ class CosineAnnealingLR_warmup(_LRScheduler):
 #>>>=============================================================================================== solver.py
 
 
+#<<<=============================================================================================== loss.py
+# https://github.com/dvlab-research/Simple-SR/blob/1113525307315cb6000485132209d75a0d827ca0/utils/loss.py#L33
 
+class CharbonnierLoss(nn.Module):
+    """Charbonnier Loss (L1)"""
+
+    def __init__(self, eps=1e-6, mode=None):
+        super(CharbonnierLoss, self).__init__()
+        self.eps = eps
+        self.mode = mode
+
+    def forward(self, x, y, mask=None):
+        N = x.size(1)
+        diff = x - y
+        loss = torch.sqrt(diff * diff + self.eps)
+        if mask is not None:
+            loss = loss * mask
+        if self.mode == 'sum':
+            loss = torch.sum(loss) / N
+        else:
+            loss = loss.mean()
+        return loss
+
+#>>>=============================================================================================== loss.py
 
 print("EOF: model_lapar_a.py")
